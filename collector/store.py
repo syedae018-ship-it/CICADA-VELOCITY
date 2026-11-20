@@ -20,9 +20,21 @@ def init_db():
             host TEXT,
             source_id TEXT,
             raw_json TEXT NOT NULL,
-            redacted_json TEXT NOT NULL
+            redacted_json TEXT NOT NULL,
+            regex_catches INTEGER DEFAULT 0,
+            ai_catches INTEGER DEFAULT 0
         )
     """)
+    # Ensure columns exist if table was already created
+    try:
+        cursor.execute("ALTER TABLE raw_records ADD COLUMN regex_catches INTEGER DEFAULT 0")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE raw_records ADD COLUMN ai_catches INTEGER DEFAULT 0")
+    except Exception:
+        pass
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS detections (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,20 +69,31 @@ def init_db():
 # Ensure DB tables are initialized on import as well
 init_db()
 
-def store_raw_record(received_utc: str, kind: str, host: str, sid: str, raw_obj: Dict[str, Any], redacted_obj: Dict[str, Any]) -> int:
+def store_raw_record(
+    received_utc: str,
+    kind: str,
+    host: str,
+    sid: str,
+    raw_obj: Dict[str, Any],
+    redacted_obj: Dict[str, Any],
+    regex_catches: int = 0,
+    ai_catches: int = 0
+) -> int:
     init_db()
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO raw_records (received_utc, kind, host, source_id, raw_json, redacted_json)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO raw_records (received_utc, kind, host, source_id, raw_json, redacted_json, regex_catches, ai_catches)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         received_utc,
         kind,
         host,
         sid,
         json.dumps(raw_obj, separators=(',', ':')),
-        json.dumps(redacted_obj, separators=(',', ':'))
+        json.dumps(redacted_obj, separators=(',', ':')),
+        regex_catches,
+        ai_catches
     ))
     record_id = cursor.lastrowid
     conn.commit()
@@ -82,7 +105,7 @@ def get_raw_records(limit: int = 50) -> List[Dict[str, Any]]:
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT id, received_utc, kind, host, source_id, raw_json, redacted_json
+        SELECT id, received_utc, kind, host, source_id, raw_json, redacted_json, regex_catches, ai_catches
         FROM raw_records
         ORDER BY id DESC
         LIMIT ?
@@ -98,7 +121,9 @@ def get_raw_records(limit: int = 50) -> List[Dict[str, Any]]:
             "host": r["host"],
             "source_id": r["source_id"],
             "raw": json.loads(r["raw_json"]),
-            "redacted": json.loads(r["redacted_json"])
+            "redacted": json.loads(r["redacted_json"]),
+            "regex_catches": r["regex_catches"] if "regex_catches" in r.keys() else 0,
+            "ai_catches": r["ai_catches"] if "ai_catches" in r.keys() else 0
         })
     return result
 

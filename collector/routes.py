@@ -6,7 +6,7 @@ import time
 
 from collector.config import settings
 from collector.adapters.simulator import adapt_to_raw_record
-from collector.redact import redact_obj
+from collector.redact import redact_obj_with_details
 from collector.store import (
     store_raw_record, get_raw_records, get_detections,
     get_egress_records, get_egress_by_id, purge_old_records
@@ -20,6 +20,7 @@ router = APIRouter()
 _current_window_records: List[Dict[str, Any]] = []
 _records_in_count = 0
 _secrets_redacted_count = 0
+_ai_catches_count = 0
 _window_start_utc = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 _lock = asyncio.Lock()
 
@@ -29,6 +30,7 @@ _saas_link_enabled = True
 async def get_status():
     async with _lock:
         depth = len(_current_window_records)
+        ai_catches = _ai_catches_count
     health = get_collector_health(buffer_depth=depth)
     return {
         "collector_id": settings.COLLECTOR_ID,
@@ -38,38 +40,53 @@ async def get_status():
         "saas_reachable": _saas_link_enabled,
         "buffer_depth": depth,
         "last_sent_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-        "uptime_s": health["uptime_s"]
+        "uptime_s": health["uptime_s"],
+        "ai_redaction": {
+            "enabled": True,
+            "engine": "local_nlp_entropy_ner",
+            "tier": "Tier 1 (Customer-side only)"
+        }
     }
 
 @router.post("/local/raw")
 async def ingest_raw(record: Dict[str, Any]):
-    global _records_in_count, _secrets_redacted_count
+    global _records_in_count, _secrets_redacted_count, _ai_catches_count
     
     # 1. Normalize with adapter
     canonical = adapt_to_raw_record(record)
     
-    # 2. Redact sensitive values
-    redacted, count = redact_obj(canonical)
+    # 2. Redact sensitive values with Regex (Tier 1) and Local AI (Tier 2)
+    redacted, regex_c, ai_c = redact_obj_with_details(canonical)
+    total_c = regex_c + ai_c
     
     now_utc = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     
-    # 3. Store both raw and redacted in local SQLite store
+    # 3. Store both raw and redacted in local SQLite store, including catch breakdown
     store_raw_record(
         received_utc=now_utc,
         kind=canonical.get("kind", "unknown"),
         host=canonical.get("host", "unknown"),
         sid=canonical.get("source_id", "unknown"),
         raw_obj=canonical,
-        redacted_obj=redacted
+        redacted_obj=redacted,
+        regex_catches=regex_c,
+        ai_catches=ai_c
     )
     
     # 4. Buffer for next 5s aggregation window
     async with _lock:
         _records_in_count += 1
-        _secrets_redacted_count += count
+        _secrets_redacted_count += total_c
+        _ai_catches_count += ai_c
         _current_window_records.append(redacted)
         
-    return {"status": "accepted", "source_id": canonical.get("source_id"), "secrets_redacted": count}
+    return {
+        "status": "accepted",
+        "source_id": canonical.get("source_id"),
+        "secrets_redacted": total_c,
+        "regex_catches": regex_c,
+        "ai_catches": ai_c
+    }
 
 @router.get("/local/raw")
 async def list_raw(limit: int = Query(50, ge=1, le=500)):
