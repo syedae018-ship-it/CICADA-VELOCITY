@@ -106,7 +106,11 @@ export default function LandingPage() {
               <Link href="/dashboard" className="btn-pill-primary h-12 px-6 inline-flex items-center gap-2">
                 Open live dashboard <ArrowRight className="w-4 h-4 icon-sharp" />
               </Link>
-              <a href="#download" className="btn-pill h-12 px-6 inline-flex items-center gap-2">
+              <a
+                href="/downloads/CICADA-Local-Collector-Setup.exe"
+                download
+                className="btn-pill h-12 px-6 inline-flex items-center gap-2"
+              >
                 <Download className="w-4 h-4 icon-sharp" /> Download for Windows
               </a>
             </div>
@@ -244,12 +248,11 @@ export default function LandingPage() {
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <a
-                  href="https://github.com/syedae018-ship-it/CICADA-VELOCITY/tree/dev/cicada-local-collector"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href="/downloads/CICADA-Local-Collector-Setup.exe"
+                  download
                   className="inline-flex items-center gap-2 h-12 px-6 rounded-full font-semibold bg-brand-mint text-brand-900 hover:brightness-95 transition shadow-cardLg"
                 >
-                  <Download className="w-4 h-4" /> Download installer
+                  <Download className="w-4 h-4" /> Download installer (11 MB)
                 </a>
                 <a
                   href="https://github.com/syedae018-ship-it/CICADA-VELOCITY/blob/dev/cicada-local-collector/README_WINDOWS.md"
