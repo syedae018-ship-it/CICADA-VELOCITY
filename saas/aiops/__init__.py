@@ -1,5 +1,10 @@
-"""AIOps engine + read API. Owner: Person C (docs/members/PERSON_C_aiops.md)."""
-from saas.aiops.engine import on_ingest, startup
-from saas.aiops.routes import router
+"""AIOps engine + read API. Owner: Person C (docs/members/PERSON_C_aiops.md).
 
-__all__ = ["on_ingest", "router", "startup"]
+saas/app.py uses `router` and `startup`; saas/ingest calls `on_ingest` for every accepted payload.
+"""
+from .correlate import CORRELATOR
+from .engine import on_ingest, startup
+from .routes import router
+from .store import STORE
+
+__all__ = ["on_ingest", "startup", "router", "STORE", "CORRELATOR"]
