@@ -16,6 +16,8 @@ import subprocess
 import time
 from typing import Any, Dict, Optional
 
+from collector.subprocess_util import safe_run_subprocess
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_PROBE_TARGET = "1.1.1.1"
@@ -87,11 +89,8 @@ def measure_network_quality(target: str = DEFAULT_PROBE_TARGET, count: int = 3, 
         cmd = ["ping", "-c", str(count), "-W", str(timeout_sec), target]
 
     try:
-        proc = subprocess.run(
+        proc = safe_run_subprocess(
             cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
             timeout=timeout_sec * count + 2,
         )
 

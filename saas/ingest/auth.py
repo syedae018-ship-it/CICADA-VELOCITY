@@ -19,6 +19,21 @@ from transport.signing import verify as verify_hmac
 logger = logging.getLogger(__name__)
 
 
+_DYNAMIC_COLLECTORS: dict[str, dict] = {}
+
+
+def register_collector(collector_id: str, tenant_id: str, region: str, secret: str) -> dict:
+    """Register a collector dynamically (e.g. via enrollment API)."""
+    info = {"tenant_id": tenant_id, "region": region, "secret": secret}
+    _DYNAMIC_COLLECTORS[collector_id] = info
+    config.COLLECTORS[collector_id] = info
+    return info
+
+
+def get_dynamic_collector(collector_id: str) -> Optional[dict]:
+    return _DYNAMIC_COLLECTORS.get(collector_id)
+
+
 def verify_collector_auth(
     collector_id: str,
     raw_body: bytes,
@@ -27,6 +42,8 @@ def verify_collector_auth(
 ) -> tuple[bool, Optional[str], Optional[dict]]:
     """Verify the HMAC signature of a collector request. Returns (is_valid, error_reason, collector_info)."""
     collector_info = config.COLLECTORS.get(collector_id or "")
+    if not collector_info:
+        collector_info = _DYNAMIC_COLLECTORS.get(collector_id or "")
     if not collector_info:
         return False, "Unknown or missing collector_id", None
     if not timestamp or not signature:

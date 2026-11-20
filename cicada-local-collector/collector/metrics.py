@@ -19,6 +19,8 @@ import subprocess
 import time
 from typing import Any, Dict, Optional
 
+from collector.subprocess_util import safe_run_subprocess
+
 try:
     import psutil
 except ImportError:
@@ -55,7 +57,7 @@ def get_cpu_temperature() -> Optional[float]:
         try:
             cmd = ["powershell", "-NoProfile", "-Command", 
                    "(Get-CimInstance -Namespace root/wmi -ClassName MSAcpi_ThermalZoneTemperature -ErrorAction SilentlyContinue).CurrentTemperature"]
-            proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=1)
+            proc = safe_run_subprocess(cmd, timeout=1)
             if proc.returncode == 0 and proc.stdout.strip():
                 # Kelvin tenths to Celsius
                 kelvin_tenth = float(proc.stdout.strip().splitlines()[0])
@@ -73,11 +75,8 @@ def get_gpu_usage() -> Optional[float]:
     # Check NVIDIA GPU via nvidia-smi
     if shutil.which("nvidia-smi"):
         try:
-            proc = subprocess.run(
+            proc = safe_run_subprocess(
                 ["nvidia-smi", "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
                 timeout=1,
             )
             if proc.returncode == 0 and proc.stdout.strip():

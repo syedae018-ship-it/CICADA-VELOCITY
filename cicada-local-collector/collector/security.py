@@ -14,6 +14,8 @@ import os
 import subprocess
 from typing import Any, Dict
 
+from collector.subprocess_util import safe_run_subprocess
+
 logger = logging.getLogger(__name__)
 
 
@@ -34,11 +36,8 @@ def count_windows_failed_logins() -> Dict[str, Any]:
     ]
 
     try:
-        proc = subprocess.run(
+        proc = safe_run_subprocess(
             cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
             timeout=4,
         )
 
@@ -83,11 +82,8 @@ def count_macos_failed_logins() -> Dict[str, Any]:
     ]
 
     try:
-        proc = subprocess.run(
+        proc = safe_run_subprocess(
             cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
             timeout=4,
         )
 

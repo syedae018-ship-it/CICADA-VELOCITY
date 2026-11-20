@@ -103,8 +103,9 @@ def render_dashboard(
 ) -> None:
     """Render the exact structured observability dashboard."""
     try:
-        if sys.stdout.isatty():
-            os.system("cls" if os.name == "nt" else "clear")
+        if sys.stdout and sys.stdout.isatty():
+            # Use ANSI clear to avoid spawning cmd.exe /c cls console windows on Windows
+            print("\033[H\033[2J", end="", flush=True)
     except Exception:
         pass
 

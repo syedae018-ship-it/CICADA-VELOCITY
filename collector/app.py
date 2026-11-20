@@ -23,6 +23,9 @@ async def lifespan(_app: FastAPI):
     await collector_routes.startup()   # Person A: aggregation / retention background tasks
     await transport.startup()          # Person B: sender loop + heartbeat
     await demo_driver.startup()        # live demo controls (DEMO_CONTROLS=1)
+    if os.getenv("ENABLE_HOST_SAMPLER", "1") == "1":
+        from collector.host_collector import start_host_sampler
+        start_host_sampler()
     yield
 
 
@@ -42,6 +45,7 @@ STARTED = time.time()
 
 @app.get("/local/status")
 def status() -> dict:
+    from collector.host_collector import is_collector_paused
     return {
         "collector_id": config.COLLECTOR_ID,
         "tenant_id": config.TENANT_ID,
@@ -52,4 +56,28 @@ def status() -> dict:
         "buffer_depth": transport.get_buffer_depth(),
         "last_sent_utc": transport.get_last_sent_utc(),
         "uptime_s": int(time.time() - STARTED),
+        "transmission_interval_s": config.TRANSMISSION_INTERVAL_SECONDS,
+        "collection_interval_s": config.COLLECTION_INTERVAL_SECONDS,
+        "collection_paused": is_collector_paused(),
     }
+
+
+@app.post("/local/pause")
+def pause_collection():
+    from collector.host_collector import set_collector_paused
+    set_collector_paused(True)
+    return {"status": "paused", "collection_paused": True}
+
+
+@app.post("/local/resume")
+def resume_collection():
+    from collector.host_collector import set_collector_paused
+    set_collector_paused(False)
+    return {"status": "resumed", "collection_paused": False}
+
+
+@app.post("/local/flush")
+async def trigger_flush():
+    from collector.routes import flush_aggregation_window
+    await flush_aggregation_window()
+    return {"status": "flushed"}

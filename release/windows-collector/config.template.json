@@ -1,0 +1,11 @@
+{
+  "saas_url": "http://localhost:8000",
+  "tenant_id": "t_acme",
+  "collector_id": "c_win01",
+  "collector_secret": "plain:dev-secret-c_win01",
+  "region": "ap-south-1",
+  "source_tz": "Asia/Kolkata",
+  "transmission_interval_seconds": 60,
+  "collection_interval_seconds": 10,
+  "service_name": "workstation-host"
+}

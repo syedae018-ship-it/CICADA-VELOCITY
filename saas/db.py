@@ -378,6 +378,9 @@ class SqliteStore(BaseStore):
     def update_collector(self, tenant_id, collector_id, fields):
         if not fields:
             return
+        region = fields.get("region") or region_for_tenant(tenant_id)
+        self._exec(tenant_id, "INSERT OR IGNORE INTO collectors (collector_id, tenant_id, region, status) VALUES (?, ?, ?, 'offline')",
+                   (collector_id, tenant_id, region))
         cols = ", ".join(f"{k} = ?" for k in fields)
         self._exec(tenant_id, f"UPDATE collectors SET {cols} WHERE tenant_id = ? AND collector_id = ?",
                    (*fields.values(), tenant_id, collector_id))

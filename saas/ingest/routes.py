@@ -20,10 +20,12 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from fastapi.concurrency import run_in_threadpool
 from jsonschema import Draft202012Validator
+from pydantic import BaseModel, Field
 
+from saas import config
 from saas.aiops import on_heartbeat, on_ingest
 from saas.db import DuplicatePayload, get_store, now_utc, parse_utc
-from saas.ingest.auth import get_tenant, verify_collector_auth
+from saas.ingest.auth import get_tenant, register_collector, verify_collector_auth
 
 logger = logging.getLogger(__name__)
 
@@ -197,6 +199,84 @@ async def heartbeat(
     except Exception:
         logger.exception("AIOps heartbeat hook failed")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+class EnrollmentRequest(BaseModel):
+    enrollment_token: str = Field(..., description="Authorized enrollment credential or token")
+    hostname: Optional[str] = None
+    os_name: Optional[str] = None
+    requested_collector_id: Optional[str] = None
+    tenant_id: Optional[str] = None
+    region: Optional[str] = None
+
+
+@router.post("/enroll", status_code=status.HTTP_200_OK)
+async def enroll_collector(req: EnrollmentRequest):
+    """Enroll a newly installed collector and return assigned identity and credentials."""
+    import re
+    import secrets
+
+    token = req.enrollment_token.strip()
+
+    # Determine tenant from authorized token:
+    tenant_id = None
+    if token == "enroll-token-globex":
+        tenant_id = "t_globex"
+    elif token in ("enroll-token-acme", "cicada-enroll-default", "dev-enroll-key", "default-enroll-token"):
+        tenant_id = "t_acme"
+    elif token.startswith("enroll-") and req.tenant_id in config.TENANTS:
+        tenant_id = req.tenant_id
+    elif config.DEV_INSECURE and token in ("dev", "demo", "dev-token", "test-token"):
+        tenant_id = req.tenant_id or "t_acme"
+
+    if not tenant_id or tenant_id not in config.TENANTS:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or unauthorized enrollment token"
+        )
+
+    # Determine region
+    home_reg = config.TENANTS[tenant_id]["home_region"]
+    region = req.region if req.region in config.REGIONS else home_reg
+
+    # Assign collector_id conforming to ^c_[a-z0-9]{2,16}$
+    if req.requested_collector_id and re.match(r"^c_[a-z0-9]{2,16}$", req.requested_collector_id):
+        collector_id = req.requested_collector_id
+    else:
+        collector_id = f"c_{secrets.token_hex(4)}"
+
+    # Generate HMAC secret
+    collector_secret = f"dev-secret-{collector_id}" if config.DEV_INSECURE else f"sec_{secrets.token_hex(16)}"
+
+    # Register in SaaS memory/registry
+    register_collector(collector_id, tenant_id=tenant_id, region=region, secret=collector_secret)
+
+    # Pre-seed in store
+    try:
+        store = get_store()
+        store.update_collector(
+            tenant_id,
+            collector_id,
+            {
+                "region": region,
+                "version": "1.0.0",
+                "status": "offline",
+                "state": "good",
+                "buffer_depth": 0,
+            }
+        )
+    except Exception as e:
+        logger.warning("Could not pre-seed collector in store: %s", e)
+
+    return {
+        "status": "enrolled",
+        "collector_id": collector_id,
+        "collector_secret": collector_secret,
+        "tenant_id": tenant_id,
+        "region": region,
+        "transmission_interval_s": 60,
+        "heartbeat_interval_s": 10,
+    }
 
 
 @router.get("/collectors")

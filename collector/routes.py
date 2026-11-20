@@ -98,7 +98,7 @@ async def flush_aggregation_window():
 async def aggregation_loop():
     while True:
         try:
-            await asyncio.sleep(5)
+            await asyncio.sleep(settings.TRANSMISSION_INTERVAL_SECONDS)
             await flush_aggregation_window()
         except asyncio.CancelledError:
             break
