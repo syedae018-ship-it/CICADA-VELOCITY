@@ -1,40 +1,40 @@
 @import "tailwindcss";
 
 /* ──────────────────────────────── Design tokens ────────────────────────────────
-   Velocity Cicada Design System:
-   Deep forest green, precision mint accents, warm architectural cream canvas,
-   hairline engineering borders, and high-contrast typography.  */
+   Premium Donezo-inspired system: warm off-white canvas, floating white cards with
+   generous radius, deep forest brand green with a bright mint accent. Everything
+   below is exposed as Tailwind utilities (bg-canvas, text-ink, bg-brand-700, …).  */
 
 @theme {
   --font-sans: var(--font-inter), "Helvetica Neue", Helvetica, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
   --font-display: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Surfaces — warm architectural canvas, pure white cards, deep forest */
+  /* Surfaces — warm, slightly off-white page, true-white cards */
   --color-canvas: #f4f5ef;        /* page background (soft, warm) */
-  --color-canvas-deep: #ecede6;   /* sidebar / secondary tint */
+  --color-canvas-deep: #ecede6;   /* sidebar strip tint */
   --color-surface: #ffffff;       /* card background */
-  --color-surface-soft: #f9faf6;  /* inset / second-level surface */
-  --color-ink: #0b1210;           /* primary text (near-black with forest hint) */
+  --color-surface-soft: #f9faf6;  /* inset / second-level card */
+  --color-ink: #0b1210;           /* primary text (near-black with a green hint) */
   --color-ink-soft: #5a6260;      /* secondary text */
   --color-ink-muted: #8b928e;     /* tertiary text */
   --color-hairline: #e2e5de;      /* card border */
   --color-hairline-strong: #cfd3ca;
 
-  /* Brand Palette */
+  /* Brand — deep forest ramp with a bright mint peak, matching the reference */
   --color-brand-50:  #ecf5ea;
   --color-brand-100: #d2e9ce;
   --color-brand-200: #a3d1a1;
   --color-brand-300: #6cb46f;
   --color-brand-400: #3f9450;
   --color-brand-500: #207a3d;
-  --color-brand-600: #176534;     /* primary hover */
-  --color-brand-700: #104f2a;     /* primary brand forest */
-  --color-brand-800: #0a3a1e;     /* deep forest */
-  --color-brand-900: #062715;     /* darkest green */
-  --color-brand-950: #03180d;     /* terminal/dark forest */
-  --color-brand-mint: #bff09c;    /* bright mint accent */
-  --color-brand-chip: #e6f0d9;    /* pale mint badge */
+  --color-brand-600: #176534;     /* primary button (hover) */
+  --color-brand-700: #104f2a;     /* primary button */
+  --color-brand-800: #0a3a1e;     /* hero/tracker */
+  --color-brand-900: #062715;     /* hero deepest */
+  --color-brand-950: #03180d;
+  --color-brand-mint: #bff09c;    /* bright accent numeral on the hero card */
+  --color-brand-chip: #e6f0d9;    /* pale mint pill background */
 
   /* Semantic */
   --color-warn-50: #fff5df;
@@ -45,16 +45,15 @@
   --color-danger-700: #a0321f;
 
   /* Shape */
-  --radius-card: 1.25rem;         /* 20px refined radius */
-  --radius-cardLg: 1.75rem;       /* 28px outer shell */
+  --radius-card: 1.5rem;          /* 24 px: signature rounded card */
+  --radius-cardLg: 2rem;           /* 32 px: outer page shell */
   --radius-pill: 9999px;
 
-  /* Shadow — soft, warm, architectural depth */
-  --shadow-card: 0 1px 3px rgba(10, 30, 20, 0.04), 0 1px 2px rgba(10, 30, 20, 0.02);
-  --shadow-cardMd: 0 4px 20px -2px rgba(10, 30, 20, 0.07), 0 2px 6px -1px rgba(10, 30, 20, 0.03);
-  --shadow-cardLg: 0 20px 48px -12px rgba(10, 30, 20, 0.12), 0 4px 12px rgba(10, 30, 20, 0.04);
-  --shadow-hero: 0 24px 64px -16px rgba(3, 24, 13, 0.45);
-  --shadow-glowMint: 0 0 24px rgba(191, 240, 156, 0.25);
+  /* Shadow — soft, warm, premium */
+  --shadow-card: 0 1px 2px rgba(10, 30, 20, 0.04);
+  --shadow-cardMd: 0 4px 16px rgba(10, 30, 20, 0.06);
+  --shadow-cardLg: 0 16px 42px -14px rgba(10, 30, 20, 0.14), 0 4px 10px rgba(10, 30, 20, 0.04);
+  --shadow-hero: 0 20px 48px -18px rgba(6, 39, 21, 0.45);
 }
 
 /* ──────────────────────────────── Base ──────────────────────────────── */
@@ -73,141 +72,147 @@
     font-family: var(--font-display);
     letter-spacing: -0.025em;
     color: var(--color-ink);
-    text-wrap: balance;
   }
-  p {
-    text-wrap: pretty;
-  }
+  h1 { letter-spacing: -0.035em; }
 }
 
 /* ──────────────────────────────── Component shortcuts ──────────────────────────────── */
 
-/* Architectural card */
+/* The signature rounded white card */
 .card {
   background: var(--color-surface);
   border-radius: var(--radius-card);
-  border: 1px solid var(--color-hairline);
   box-shadow: var(--shadow-card);
 }
 
 .card-hover {
-  transition: box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
 }
 .card-hover:hover {
   box-shadow: var(--shadow-cardMd);
-  border-color: var(--color-hairline-strong);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
-/* Technical grid patterns */
-.bg-tech-grid {
-  background-size: 32px 32px;
-  background-image: 
-    linear-gradient(to right, rgba(16, 79, 42, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(16, 79, 42, 0.04) 1px, transparent 1px);
-}
-
-.bg-tech-grid-dark {
-  background-size: 24px 24px;
-  background-image: 
-    linear-gradient(to right, rgba(191, 240, 156, 0.06) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(191, 240, 156, 0.06) 1px, transparent 1px);
-}
-
-.bg-dots {
-  background-image: radial-gradient(rgba(16, 79, 42, 0.12) 1px, transparent 1px);
-  background-size: 16px 16px;
-}
-
-/* Pill buttons */
+/* Pill button (outline, dark forest text, hollow) — matches the "Import Data" button */
 .btn-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
   border-radius: var(--radius-pill);
-  padding: 0.65rem 1.35rem;
+  padding: 0.75rem 1.5rem;
   font-weight: 600;
   font-size: 0.875rem;
   letter-spacing: -0.01em;
   border: 1.5px solid var(--color-brand-800);
   color: var(--color-brand-800);
   background: transparent;
-  transition: background 0.18s cubic-bezier(0.16, 1, 0.3, 1), color 0.18s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s ease;
+  transition: background 0.15s, color 0.15s;
 }
-.btn-pill:hover {
-  background: var(--color-brand-50);
-  border-color: var(--color-brand-700);
-}
+.btn-pill:hover { background: var(--color-brand-50); }
 
+/* Pill button (filled dark green) — matches the "+ Add Project" button */
 .btn-pill-primary {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
   border-radius: var(--radius-pill);
-  padding: 0.65rem 1.45rem;
+  padding: 0.75rem 1.5rem;
   font-weight: 600;
   font-size: 0.875rem;
   letter-spacing: -0.01em;
   color: #ffffff;
   background: var(--color-brand-700);
-  transition: background 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.15s ease;
-  box-shadow: 0 1px 0 rgba(255,255,255,0.12) inset, 0 8px 18px -6px rgba(16, 79, 42, 0.45);
+  transition: background 0.15s, box-shadow 0.15s;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.08) inset, 0 6px 14px -8px rgba(16, 79, 42, 0.5);
 }
 .btn-pill-primary:hover {
   background: var(--color-brand-800);
-  transform: translateY(-1px);
-  box-shadow: 0 1px 0 rgba(255,255,255,0.15) inset, 0 12px 24px -6px rgba(16, 79, 42, 0.55);
-}
-.btn-pill-primary:active {
-  transform: translateY(0);
 }
 
-/* Secondary dark button for dark backgrounds */
-.btn-mint-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  border-radius: var(--radius-pill);
-  padding: 0.65rem 1.45rem;
-  font-weight: 600;
-  font-size: 0.875rem;
-  letter-spacing: -0.01em;
-  color: var(--color-brand-950);
-  background: var(--color-brand-mint);
-  transition: background 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease;
-  box-shadow: 0 0 20px rgba(191, 240, 156, 0.3);
-}
-.btn-mint-primary:hover {
-  background: #cbf5ab;
-  transform: translateY(-1px);
-  box-shadow: 0 0 28px rgba(191, 240, 156, 0.45);
-}
-
-/* Soft chip */
+/* Soft chip used for KPI deltas and secondary badges */
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.175rem 0.6rem;
-  border-radius: 9999px;
-  font-size: 11px;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.5rem;
+  font-size: 10px;
   font-weight: 600;
   background: var(--color-brand-chip);
   color: var(--color-brand-800);
   border: 1px solid #d5e6b4;
 }
 
-/* Lucide icon stroke tightening */
-.icon-sharp { stroke-width: 1.75; }
+/* Diagonal hatch patterns used by chart bars and gauge "empty" segments */
+.hatch {
+  background-image: repeating-linear-gradient(
+    135deg,
+    #b8c0b0 0 2px,
+    transparent 2px 7px
+  );
+}
+.hatch-tight {
+  background-image: repeating-linear-gradient(
+    135deg,
+    #a7b0a0 0 1.5px,
+    transparent 1.5px 5px
+  );
+}
+.hatch-green {
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(16,79,42,0.35) 0 2px,
+    transparent 2px 7px
+  );
+}
 
-/* Custom scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
+/* Decorative rings for hero and tracker cards */
+.ring-deco {
+  position: absolute;
+  border-radius: 9999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+/* Minimal scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #d6d8d0; border-radius: 999px; }
 ::-webkit-scrollbar-thumb:hover { background: #b4b7ab; }
 
-/* Accessible focus */
+/* Subtle, smooth page transitions without layout shifts */
+@keyframes viewFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.view-transition {
+  animation: viewFadeIn 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Lucide icon stroke tightening */
+.icon-sharp { stroke-width: 1.75; }
+
+
+/* Native select: strip the browser's arrow so our own ChevronDown is the only one shown */
+select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: none;
+  padding-right: 0;
+}
+select::-ms-expand { display: none; }
+
+/* Accessible focus — same brand green ring everywhere */
 button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visible {
   outline: 2px solid var(--color-brand-700);
   outline-offset: 2px;
+  border-radius: inherit;
 }
