@@ -1,0 +1,29 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Telemetry data output & offline buffer
+data/telemetry.json
+data/*.tmp
+data/*.db
+data/*.sqlite
+data/device_config.json
+
+# Environment and sensitive credential files
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Environments
+.venv/
+venv/
+env/
+ENV/
+
+# Testing & tool caches
+.pytest_cache/
+.coverage
+htmlcov/
