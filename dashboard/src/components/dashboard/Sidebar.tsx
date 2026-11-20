@@ -65,16 +65,16 @@ export default function Sidebar({
       badge: openIncidentsCount > 0 ? `${openIncidentsCount}` : null,
       badgeKind: "count",
     },
-    { id: "ai_insights", label: "AI Insights", icon: Sparkles, badge: "AIOps", badgeKind: "soft" },
-    { id: "egress", label: "Egress Proof", icon: ShieldCheck, badge: "T1→2", badgeKind: "soft" },
+    { id: "ai_insights", label: "AI Insights", icon: Sparkles },
+    { id: "egress", label: "Egress Proof", icon: ShieldCheck },
   ];
 
   const general: NavItem[] = [
-    { id: "privacy", label: "Privacy Side-by-Side", icon: EyeOff, badge: "0 leaks", badgeKind: "soft" },
-    { id: "reliability", label: "Reliability", icon: Activity, badge: "<10s", badgeKind: "soft" },
+    { id: "privacy", label: "Privacy", icon: EyeOff },
+    { id: "reliability", label: "Reliability", icon: Activity },
     { id: "timeline", label: "Timeline", icon: Clock },
-    { id: "history", label: "State History", icon: History },
-    { id: "reports", label: "Reports", icon: FileDown, badge: "CSV", badgeKind: "soft" },
+    { id: "history", label: "History", icon: History },
+    { id: "reports", label: "Reports", icon: FileDown },
   ];
 
   const NavSection = ({ title, items }: { title: string; items: NavItem[] }) => (

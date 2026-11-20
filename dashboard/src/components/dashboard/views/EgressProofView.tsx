@@ -1,6 +1,18 @@
 "use client";
 
 import React, { useState } from "react";
+import {
+  ShieldCheck,
+  CheckCircle2,
+  AlertTriangle,
+  Copy,
+  Fingerprint,
+  Clock,
+  Hash,
+  Database,
+  CircleSlash,
+  ChevronRight,
+} from "lucide-react";
 import { EgressPayloadEntry, TenantId } from "@/types";
 
 interface EgressProofViewProps {
@@ -8,122 +20,244 @@ interface EgressProofViewProps {
   egressPayloads: EgressPayloadEntry[];
 }
 
-export default function EgressProofView({
-  tenantId,
-  egressPayloads,
-}: EgressProofViewProps) {
-  const [selectedPayload, setSelectedPayload] = useState<EgressPayloadEntry | null>(
-    egressPayloads[0] || null
-  );
-  const [copied, setCopied] = useState<boolean>(false);
+const resultMeta: Record<
+  EgressPayloadEntry["result"],
+  { chip: string; label: string; Icon: React.ComponentType<{ className?: string }> }
+> = {
+  delivered:     { chip: "bg-brand-chip text-brand-800 border border-[#d5e6b4]", label: "Delivered",  Icon: CheckCircle2 },
+  duplicate_ack: { chip: "bg-canvas-deep/40 text-ink-soft border border-hairline", label: "Duplicate",  Icon: CheckCircle2 },
+  buffered:      { chip: "bg-warn-50 text-warn-700 border border-warn-100",       label: "Buffered",   Icon: Clock },
+  failed:        { chip: "bg-danger-50 text-danger-700 border border-danger-100", label: "Failed",     Icon: AlertTriangle },
+};
 
-  const copyJson = (data: any) => {
-    navigator.clipboard.writeText(JSON.stringify(data, null, 2));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+function timeHHMMSS(iso: string) {
+  try {
+    return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  } catch {
+    return "—";
+  }
+}
+
+export default function EgressProofView({ egressPayloads }: EgressProofViewProps) {
+  const [selected, setSelected] = useState<EgressPayloadEntry | null>(egressPayloads[0] ?? null);
+  const [copied, setCopied] = useState(false);
+
+  // Keep selection fresh when the data array is refreshed
+  React.useEffect(() => {
+    if (egressPayloads.length === 0) {
+      setSelected(null);
+      return;
+    }
+    if (!selected || !egressPayloads.find((p) => p.payload_id === selected.payload_id)) {
+      setSelected(egressPayloads[0]);
+    }
+  }, [egressPayloads, selected]);
+
+  const copyJson = (data: unknown) => {
+    try {
+      navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* noop */
+    }
   };
 
+  const allMatch = egressPayloads.every((p) => p.matches_saas);
+  const delivered = egressPayloads.filter((p) => p.matches_saas).length;
+
   return (
-    <div className="space-y-6 font-sans">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-hairline gap-2">
-        <div>
-          <h1 className="text-lg font-bold text-ink uppercase tracking-tight">
-            Egress Proof Panel (Tier 1 &rarr; Tier 2)
-          </h1>
-          <p className="text-xs text-ink-soft">
-            Byte-for-byte audit log of wire payloads exported by collector (port 8001)
-          </p>
-        </div>
-        <div className="text-xs font-mono border border-hairline bg-neutral-100 text-ink px-2.5 py-1 rounded">
-          {egressPayloads.every((p) => p.matches_saas)
-            ? "ALL PAYLOADS MATCH SAAS ✓"
-            : `${egressPayloads.filter((p) => p.matches_saas).length} DELIVERED · ${egressPayloads.filter((p) => !p.matches_saas).length} BUFFERED LOCALLY`}
+    <div className="space-y-6">
+      {/* Title */}
+      <div className="px-1">
+        <h1 className="text-[36px] leading-[1.05] font-bold tracking-[-0.03em] text-ink">
+          Egress proof
+        </h1>
+        <p className="text-[14px] text-ink-soft mt-2">
+          Every payload that left Tier 1, byte-for-byte.
+        </p>
+      </div>
+
+      {/* Hero summary strip */}
+      <div
+        className={`card p-5 flex items-center gap-4 ${
+          allMatch ? "border border-[#d5e6b4] bg-brand-chip" : "border border-warn-100 bg-warn-50"
+        }`}
+      >
+        <span
+          className={`h-12 w-12 rounded-full flex items-center justify-center ${
+            allMatch ? "bg-white border border-[#d5e6b4]" : "bg-white border border-warn-100"
+          }`}
+        >
+          <ShieldCheck className={`w-6 h-6 icon-sharp ${allMatch ? "text-brand-800" : "text-warn-700"}`} />
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="text-[15px] font-bold text-ink">
+            {allMatch ? "All payloads match SaaS" : "Some payloads still buffered"}
+          </div>
+          <div className="text-[12.5px] text-ink-soft">
+            {delivered} of {egressPayloads.length} delivered · sha256 verified
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left: Payloads Sequence */}
-        <div className="lg:col-span-5 space-y-2">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-soft font-semibold mb-2">
-            Logged Payloads ({egressPayloads.length})
+      {egressPayloads.length === 0 ? (
+        <div className="card p-12 flex flex-col items-center gap-3 text-ink-muted">
+          <CircleSlash className="w-10 h-10 icon-sharp" />
+          <div className="text-[14px]">No payloads sent yet.</div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          {/* Timeline list */}
+          <div className="lg:col-span-5 space-y-2.5">
+            <div className="flex items-center justify-between px-1 pb-1">
+              <h3 className="text-[13px] font-semibold uppercase tracking-wider text-ink-muted">
+                Recent payloads
+              </h3>
+              <span className="text-[11.5px] font-mono text-ink-muted">{egressPayloads.length} total</span>
+            </div>
+            <div className="max-h-[720px] overflow-y-auto space-y-2.5 pr-1">
+              {egressPayloads.map((p) => {
+                const r = resultMeta[p.result];
+                const isSel = selected?.payload_id === p.payload_id;
+                return (
+                  <button
+                    key={p.payload_id}
+                    onClick={() => setSelected(p)}
+                    className={`w-full card card-hover p-4 text-left border-2 transition ${
+                      isSel ? "border-brand-800" : "border-transparent"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <span className="h-9 w-9 rounded-xl bg-canvas-deep/40 border border-hairline/60 flex items-center justify-center">
+                          <Hash className="w-4 h-4 icon-sharp text-brand-800" />
+                        </span>
+                        <div>
+                          <div className="text-[13px] font-semibold text-ink">#{p.seq}</div>
+                          <div className="text-[10.5px] text-ink-muted font-mono truncate max-w-[180px]">
+                            {p.payload_id.slice(0, 18)}…
+                          </div>
+                        </div>
+                      </div>
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10.5px] font-semibold ${r.chip}`}
+                      >
+                        <r.Icon className="w-3 h-3 icon-sharp" />
+                        {r.label}
+                      </span>
+                    </div>
+                    <div className="mt-2.5 pt-2.5 border-t border-hairline/60 flex items-center justify-between text-[10.5px] font-mono text-ink-muted">
+                      <span className="flex items-center gap-1.5">
+                        <Clock className="w-3 h-3 icon-sharp" />
+                        {timeHHMMSS(p.sent_at_utc)}
+                      </span>
+                      <span className="truncate ml-2">
+                        {p.sha256 ? `${p.sha256.slice(0, 12)}…` : ""}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {egressPayloads.map((item) => {
-            const isSelected = selectedPayload?.payload_id === item.payload_id;
-            return (
-              <div
-                key={item.payload_id}
-                onClick={() => setSelectedPayload(item)}
-                className={`p-3.5 border rounded cursor-pointer transition text-left font-mono text-xs ${
-                  isSelected
-                    ? "bg-brand-800 border-neutral-900 text-white"
-                    : "bg-white hover:bg-canvas border-hairline text-ink-soft"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className={`font-bold ${isSelected ? "text-white" : "text-ink"}`}>
-                    Seq #{item.seq}
-                  </span>
-                  <span className={`text-[10px] uppercase border px-1.5 py-0.2 rounded ${
-                    isSelected ? "border-neutral-700 bg-neutral-800 text-neutral-200" : "border-hairline bg-canvas text-ink-soft"
-                  }`}>
-                    Delivered (202)
-                  </span>
-                </div>
-
-                <div className="text-[11px] truncate mb-1">
-                  ID: {item.payload_id}
-                </div>
-
-                <div className={`flex items-center justify-between text-[10px] ${isSelected ? "text-ink-soft/70" : "text-ink-soft"}`}>
-                  <span>{item.sent_at_utc.slice(11, 19)} UTC</span>
-                  <span>SHA: {item.sha256.slice(0, 16)}...</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Right: Exact Wire Payload Viewer */}
-        <div className="lg:col-span-7 border border-hairline bg-white p-5 rounded-lg space-y-4 shadow-xs">
-          {selectedPayload ? (
-            <div>
-              <div className="flex items-center justify-between pb-3 mb-3 border-b border-hairline/60">
-                <div>
-                  <h3 className="text-xs font-bold text-ink font-mono uppercase">
-                    Wire Payload · Seq #{selectedPayload.seq}
-                  </h3>
-                  <div className="text-[10px] font-mono text-ink-soft">
-                    ID: {selectedPayload.payload_id}
+          {/* Selected payload detail */}
+          <div className="lg:col-span-7">
+            {selected && (
+              <div className="card p-6 sticky top-6">
+                {/* Headline */}
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="h-10 w-10 rounded-xl bg-brand-chip border border-[#d5e6b4] flex items-center justify-center">
+                      <Fingerprint className="w-5 h-5 text-brand-800 icon-sharp" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="text-[11px] text-ink-muted font-semibold uppercase tracking-wider">
+                        Payload #{selected.seq}
+                      </div>
+                      <div className="text-[13px] text-ink font-mono truncate">{selected.payload_id}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold ${resultMeta[selected.result].chip}`}
+                    >
+                      {React.createElement(resultMeta[selected.result].Icon, {
+                        className: "w-3.5 h-3.5 icon-sharp",
+                      })}
+                      {resultMeta[selected.result].label}
+                    </span>
+                    <button
+                      onClick={() => copyJson(selected.body)}
+                      className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full border border-hairline hover:border-brand-200 text-[12px] font-semibold text-ink-soft hover:text-ink transition"
+                    >
+                      <Copy className="w-3.5 h-3.5 icon-sharp" />
+                      {copied ? "Copied" : "Copy JSON"}
+                    </button>
                   </div>
                 </div>
 
-                <button
-                  onClick={() => copyJson(selectedPayload.body)}
-                  className="px-2.5 py-1 rounded border border-hairline bg-canvas text-xs font-mono text-ink-soft hover:bg-neutral-100 transition"
-                >
-                  {copied ? "COPIED ✓" : "COPY JSON"}
-                </button>
-              </div>
+                {/* Mini stats */}
+                <div className="mt-5 grid grid-cols-3 gap-3">
+                  <StatTile Icon={Clock} label="Sent at" value={timeHHMMSS(selected.sent_at_utc)} mono />
+                  <StatTile Icon={Database} label="Attempts" value={String(selected.attempts ?? 1)} />
+                  <StatTile Icon={Hash} label="Size" value={`${JSON.stringify(selected.body ?? {}).length} B`} />
+                </div>
 
-              <div className="p-2.5 border border-hairline bg-canvas rounded font-mono text-[11px] text-ink-soft mb-3 flex items-center justify-between">
-                <span>SHA-256 Checksum:</span>
-                <span className="text-ink select-all font-semibold">{selectedPayload.sha256}</span>
-              </div>
+                {/* SHA */}
+                <div className="mt-4 px-4 py-3 rounded-2xl bg-canvas-deep/40 border border-hairline/60">
+                  <div className="text-[10.5px] font-semibold uppercase tracking-wider text-ink-muted mb-1 flex items-center gap-1.5">
+                    <Fingerprint className="w-3 h-3 icon-sharp" />
+                    SHA-256 (what SaaS received)
+                  </div>
+                  <div className="text-[11.5px] font-mono text-ink break-all">{selected.sha256}</div>
+                </div>
 
-              <div className="border border-hairline bg-canvas p-4 rounded font-mono text-[11px] text-ink max-h-[460px] overflow-auto select-all leading-relaxed">
-                <pre>{JSON.stringify(selectedPayload.body, null, 2)}</pre>
-              </div>
+                {/* Payload body */}
+                <div className="mt-4">
+                  <div className="text-[10.5px] font-semibold uppercase tracking-wider text-ink-muted mb-2">
+                    Wire payload (exact bytes)
+                  </div>
+                  <pre className="max-h-[320px] overflow-auto px-4 py-3 rounded-2xl bg-ink text-brand-mint text-[11.5px] font-mono leading-relaxed">
+                    {JSON.stringify(selected.body, null, 2)}
+                  </pre>
+                </div>
 
-              <div className="mt-3 p-2.5 border border-hairline bg-canvas rounded text-xs font-mono text-ink-soft">
-                ✓ Verified: No raw messages, passwords, or PII exist in exported wire payload.
+                {/* Verified strip */}
+                <div className="mt-4 flex items-center gap-3 px-4 py-3 rounded-2xl bg-brand-chip border border-[#d5e6b4]">
+                  <CheckCircle2 className="w-4 h-4 icon-sharp text-brand-800 shrink-0" />
+                  <div className="text-[12.5px] text-brand-800">
+                    No raw logs, no credentials, no PII — only allow-listed metadata.
+                  </div>
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="text-center py-20 text-xs font-mono text-ink-soft">
-              Select an egress payload from the left to inspect its wire contents.
-            </div>
-          )}
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatTile({
+  Icon,
+  label,
+  value,
+  mono,
+}: {
+  Icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl bg-canvas-deep/40 border border-hairline/60 p-3 flex items-center gap-2.5">
+      <Icon className="w-4 h-4 icon-sharp text-ink-muted shrink-0" />
+      <div className="min-w-0">
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">{label}</div>
+        <div className={`text-[13px] font-semibold text-ink leading-tight ${mono ? "font-mono" : ""}`}>
+          {value}
         </div>
       </div>
     </div>

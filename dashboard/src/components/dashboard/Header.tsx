@@ -97,13 +97,13 @@ export default function Header({
       </button>
 
       {/* Time range */}
-      <div className="hidden md:flex items-center gap-2 h-12 px-4 rounded-full border border-hairline text-[13px] text-ink-soft">
+      <div className="hidden md:flex items-center gap-2 h-12 pl-4 pr-3 rounded-full border border-hairline text-[13px] text-ink-soft hover:border-brand-200 transition">
         <Clock className="w-[16px] h-[16px] icon-sharp" />
         <select
           value={timeRange}
           onChange={(e) => onTimeRangeChange(e.target.value as TimeRange)}
           aria-label="Time range"
-          className="bg-transparent focus:outline-none cursor-pointer font-medium"
+          className="bg-transparent focus:outline-none cursor-pointer font-medium pr-1"
         >
           <option value="15m">Last 15 min</option>
           <option value="1h">Last 1 hour</option>
@@ -111,6 +111,7 @@ export default function Header({
           <option value="24h">Last 24 hours</option>
           <option value="7d">Last 7 days</option>
         </select>
+        <ChevronDown className="w-3.5 h-3.5 text-ink-muted" />
       </div>
 
       {/* Live status pill */}
@@ -133,7 +134,7 @@ export default function Header({
       </div>
 
       {/* Scenario menu */}
-      <div className="hidden sm:block">
+      <div className="hidden sm:block relative">
         <select
           defaultValue=""
           aria-label="Inject scenario"
@@ -143,7 +144,7 @@ export default function Header({
               e.target.value = "";
             }
           }}
-          className="h-12 pl-5 pr-10 rounded-full text-[13px] font-semibold text-white bg-brand-700 hover:bg-brand-800 cursor-pointer focus:outline-none shadow-[0_6px_14px_-8px_rgba(16,79,42,0.5)]"
+          className="h-12 pl-5 pr-12 rounded-full text-[13px] font-semibold text-white bg-brand-700 hover:bg-brand-800 cursor-pointer focus:outline-none shadow-[0_6px_14px_-8px_rgba(16,79,42,0.5)] transition"
         >
           <option value="" disabled className="text-ink">
             {backend.live ? "Inject scenario" : "Scenario (sample)"}
@@ -154,6 +155,7 @@ export default function Header({
             </option>
           ))}
         </select>
+        <ChevronDown className="w-3.5 h-3.5 text-white/80 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
       </div>
 
       {/* Reset */}

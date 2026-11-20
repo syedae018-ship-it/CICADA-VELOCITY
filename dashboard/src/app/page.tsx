@@ -175,7 +175,7 @@ export default function DashboardPage() {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 px-4 lg:px-6 py-5 gap-5">
+      <div className="flex-1 flex flex-col min-w-0 px-3 sm:px-4 lg:px-6 py-3 sm:py-5 gap-4 sm:gap-5">
         <Header
           tenantId={tenantId}
           onTenantChange={(t) => {

@@ -182,3 +182,21 @@
 
 /* Lucide icon stroke tightening */
 .icon-sharp { stroke-width: 1.75; }
+
+
+/* Native select: strip the browser's arrow so our own ChevronDown is the only one shown */
+select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: none;
+  padding-right: 0;
+}
+select::-ms-expand { display: none; }
+
+/* Accessible focus — same brand green ring everywhere */
+button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visible {
+  outline: 2px solid var(--color-brand-700);
+  outline-offset: 2px;
+  border-radius: inherit;
+}
