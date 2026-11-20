@@ -1,0 +1,33 @@
+# secrets
+.env
+.env*.local
+*.pem
+*.key
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# local databases / runtime data
+*.db
+*.sqlite
+collector/data/
+saas/data/
+logs/
+
+# node / next
+node_modules/
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+npm-debug.log*
+.vercel
+
+# os / editors
+.DS_Store
+.vscode/
+.idea/

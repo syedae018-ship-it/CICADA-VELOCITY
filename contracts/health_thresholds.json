@@ -1,0 +1,34 @@
+{
+  "version": "1.0",
+  "description": "Four product health states. A metric value <= excellent_max is Excellent, <= good_max is Good, <= fair_max is Fair, otherwise Poor. An entity's state is the WORST of its metric states, staleness and security events. Every state change must record the reason and a UTC timestamp in health_history.",
+  "states": ["excellent", "good", "fair", "poor"],
+  "metrics": {
+    "cpu_pct":         { "excellent_max": 60,  "good_max": 75,  "fair_max": 90 },
+    "mem_pct":         { "excellent_max": 65,  "good_max": 80,  "fair_max": 92 },
+    "disk_pct":        { "excellent_max": 70,  "good_max": 85,  "fair_max": 95 },
+    "latency_ms":      { "excellent_max": 50,  "good_max": 100, "fair_max": 250 },
+    "packet_loss_pct": { "excellent_max": 0.1, "good_max": 1.0, "fair_max": 5.0 }
+  },
+  "booleans": {
+    "service_up":      { "false_state": "poor" },
+    "connectivity_ok": { "false_state": "poor" }
+  },
+  "anomaly": {
+    "description": "Baseline-driven, beyond static thresholds. A z-score above these values raises the state to at least the given level.",
+    "baseline_window_minutes": 15,
+    "min_samples": 20,
+    "z_good": 2.0,
+    "z_fair": 3.0,
+    "z_poor": 4.5
+  },
+  "security": {
+    "failed_login_burst": { "count_fair": 5, "count_poor": 20, "window_s": 60 }
+  },
+  "staleness": {
+    "description": "Stale data DOWNGRADES the state; never keep showing the last good value.",
+    "source_stale_after_s": 30,
+    "source_stale_effect": "downgrade_one_level",
+    "collector_offline_after_s": 60,
+    "collector_offline_state": "poor"
+  }
+}

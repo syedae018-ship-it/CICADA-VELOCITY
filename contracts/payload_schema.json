@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://velocity-cicada/contracts/payload_schema.json",
+  "title": "MetadataPayload v1.0 — the ONLY thing that leaves the customer environment",
+  "description": "Every key is allow-listed. additionalProperties=false everywhere, so any field not listed here is rejected by the collector before sending AND by SaaS on ingest (defense in depth).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "payload_id", "tenant_id", "collector_id", "region", "seq", "sent_at_utc", "source_tz", "window", "sources", "events", "collector_health", "redaction_stats"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "payload_id": { "type": "string", "format": "uuid", "description": "UUIDv4. Idempotency key. Generated ONCE when the payload is built; retries reuse it." },
+    "tenant_id": { "type": "string", "pattern": "^t_[a-z0-9]{2,16}$" },
+    "collector_id": { "type": "string", "pattern": "^c_[a-z0-9]{2,16}$" },
+    "region": { "enum": ["ap-south-1", "eu-west-1", "us-east-1"] },
+    "seq": { "type": "integer", "minimum": 1, "description": "Monotonic per collector. Lets SaaS detect gaps." },
+    "sent_at_utc": { "type": "string", "format": "date-time", "description": "First build time, ISO-8601 with Z." },
+    "source_tz": { "type": "string", "description": "IANA timezone of the collector site, e.g. Asia/Kolkata." },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start_utc", "end_utc"],
+      "properties": {
+        "start_utc": { "type": "string", "format": "date-time" },
+        "end_utc": { "type": "string", "format": "date-time" }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_id", "source_type", "event_time_utc", "metrics"],
+        "properties": {
+          "source_id": { "type": "string", "pattern": "^src_[a-f0-9]{12}$", "description": "HMAC-SHA256(site_salt, hostname)[:12]. Salt never leaves the collector." },
+          "source_type": { "enum": ["server", "network", "app", "security"] },
+          "service": { "type": "string", "maxLength": 40, "description": "Logical service name from the collector config, e.g. 'payments-api'. Never a hostname/IP." },
+          "event_time_utc": { "type": "string", "format": "date-time", "description": "Event time of the latest sample in the window (NOT arrival time)." },
+          "metrics": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "cpu_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+              "mem_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+              "disk_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+              "latency_ms": { "type": "number", "minimum": 0 },
+              "packet_loss_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+              "bandwidth_mbps": { "type": "number", "minimum": 0 },
+              "service_up": { "type": "boolean" },
+              "connectivity_ok": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["event_id", "event_time_utc", "source_id", "category", "severity", "type", "count", "summary"],
+        "properties": {
+          "event_id": { "type": "string", "format": "uuid" },
+          "event_time_utc": { "type": "string", "format": "date-time" },
+          "source_id": { "type": "string", "pattern": "^src_[a-f0-9]{12}$" },
+          "category": { "enum": ["auth", "network", "resource", "availability", "collector"] },
+          "severity": { "enum": ["info", "low", "medium", "high", "critical"] },
+          "type": { "enum": ["failed_login_burst", "suspicious_activity", "service_down", "link_down", "latency_spike", "packet_loss", "resource_pressure", "warning_recurring", "collector_restart"] },
+          "count": { "type": "integer", "minimum": 1 },
+          "summary": { "type": "string", "maxLength": 200, "description": "Templated text built by the collector. Must NOT contain raw log text, usernames, IPs, hostnames or secrets." }
+        }
+      }
+    },
+    "collector_health": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "cpu_pct", "mem_pct", "buffer_depth", "config_hash", "uptime_s"],
+      "properties": {
+        "version": { "type": "string", "maxLength": 20 },
+        "cpu_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+        "mem_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+        "buffer_depth": { "type": "integer", "minimum": 0 },
+        "config_hash": { "type": "string", "pattern": "^[a-f0-9]{8,64}$" },
+        "uptime_s": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "redaction_stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["records_in", "secrets_redacted", "fields_dropped"],
+      "properties": {
+        "records_in": { "type": "integer", "minimum": 0 },
+        "secrets_redacted": { "type": "integer", "minimum": 0 },
+        "fields_dropped": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}
