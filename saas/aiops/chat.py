@@ -22,6 +22,46 @@ def _get_sb():
         return None
 
 
+def _check_platform_firewall(query: str) -> Optional[str]:
+    """Inspect query against platform security firewall.
+    Returns rejection message if query asks for arbitrary code generation or off-topic tasks.
+    """
+    q = query.lower().strip()
+
+    # 1. Jailbreak / Injection Detection
+    injections = [
+        "ignore previous instructions", "ignore all previous", "dan mode", "jailbreak",
+        "bypass firewall", "pretend you are an unrestricted", "output your system prompt"
+    ]
+    if any(i in q for i in injections):
+        return "Prompt injection or guardrail bypass attempt detected."
+
+    # 2. Code generation requests (excluding collector operational commands)
+    code_triggers = [
+        "write code", "write a script", "write a python", "write python", "write a program",
+        "write a function", "code a", "code me", "generate code", "generate a script",
+        "build an app", "create an app", "write javascript", "write html", "write css",
+        "write react", "create a website", "write a bot", "leetcode"
+    ]
+    is_code_req = any(t in q for t in code_triggers)
+    is_platform_op = any(k in q for k in ["collector", "service", "windows_service", "rollback", "remediation"])
+    if is_code_req and not is_platform_op:
+        return "Arbitrary software code generation is barred by platform policy."
+
+    # 3. Off-topic queries
+    off_topic = [
+        "write a poem", "write a story", "write an essay", "tell a joke", "who is ",
+        "who was ", "capital of ", "weather in ", "recipe for ", "translate to ",
+        "meaning of life", "solve this math", "derivative of", "integral of", "football", "cricket"
+    ]
+    if any(p in q for p in off_topic):
+        is_obs = any(k in q for k in ["alert", "incident", "cpu", "metric", "collector", "supabase", "cicada", "security", "telemetry"])
+        if not is_obs:
+            return "Off-topic query unrelated to infrastructure observability or platform data."
+
+    return None
+
+
 def _call_gemini_api(api_key: str, message: str, tenant_id: str, alerts: list, incidents: list, collectors: list, recs: list) -> Optional[str]:
     models = ["gemini-2.0-flash", "gemini-1.5-flash"]
     context_str = json.dumps({
@@ -34,9 +74,13 @@ def _call_gemini_api(api_key: str, message: str, tenant_id: str, alerts: list, i
     
     system_instruction = (
         "You are Velocity Cicada's AIOps Co-Pilot, an expert AI SRE and cybersecurity observability specialist. "
-        f"You have live access to Supabase telemetry for tenant '{tenant_id}'. "
-        "Answer the user query accurately, technically, and concisely based strictly on this live context. "
-        "Explain root causes, specific metrics, and remediation paths where relevant."
+        f"You have real-time access to live telemetry from Supabase for tenant '{tenant_id}'.\n\n"
+        "CRITICAL PLATFORM FIREWALL & GUARDRAIL POLICY (STRICTLY ENFORCED):\n"
+        "1. DOMAIN BOUNDARY: You MUST strictly answer questions related to Velocity Cicada infrastructure observability, telemetry metrics, alerts, incidents, collectors, and recommendations based on Supabase data.\n"
+        "2. NO CODE GENERATION: You MUST NEVER write arbitrary application code, scripts, software, web apps, or general programming solutions. The ONLY permissible commands are specific platform remediation or rollback CLI commands (e.g. 'python -m collector.windows_service --restart') addressing an active incident.\n"
+        "3. NO OFF-TOPIC QUERIES: If the user asks for code generation or asks any off-topic question, refuse immediately with:\n"
+        "'🛡️ [AIOps Platform Firewall Alert] Request Denied: I am strictly firewalled to infrastructure observability, incident triage, and explainable recommendations based on your Supabase telemetry data. I cannot write arbitrary code or answer questions unrelated to your platform data.'\n"
+        "4. PRIVACY GUARANTEE: Raw telemetry remains local to the host; only allow-listed metadata was sent to Supabase."
     )
     prompt = f"LIVE SUPABASE TELEMETRY CONTEXT:\n{context_str}\n\nUSER QUERY:\n{message}"
     
@@ -408,6 +452,37 @@ def process_chat_message(message: str, tenant_id: str, context: str = "", gemini
     if not message or not isinstance(message, str):
         return _handle_help(message)
     msg = message.lower().strip()
+
+    # ── PLATFORM FIREWALL PRE-SCREENING ───────────────────────────────────────
+    firewall_block_reason = _check_platform_firewall(message)
+    if firewall_block_reason:
+        return {
+            "reply": (
+                f"🛡️ [AIOps Platform Firewall Alert]\n\n"
+                f"Request Blocked: {firewall_block_reason}\n\n"
+                "The Velocity Cicada AIOps Co-Pilot is strictly firewalled to infrastructure observability, "
+                "incident triage, and explainable recommendations derived directly from your Supabase telemetry.\n\n"
+                "Strict Boundaries Enforced:\n"
+                "❌ Arbitrary code generation, external software development, and non-remediation scripts are strictly prohibited.\n"
+                "❌ General trivia, off-topic inquiries, and non-observability tasks are barred.\n\n"
+                "✅ Permitted Topics:\n"
+                "• Open alerts & threshold crossings\n"
+                "• Correlated incidents & root-cause hypotheses\n"
+                "• Host telemetry metrics (CPU, RAM, Disk, Latency)\n"
+                "• Collector fleet health & buffer status\n"
+                "• AIOps remediation recommendations & rollback plans\n"
+                "• Platform security posture (5-layer defense, local redaction, HMAC)"
+            ),
+            "cards": [{
+                "kind": "stat",
+                "title": "Platform Firewall Active",
+                "subtitle": "Security Boundary Enforced",
+                "severity": "high",
+                "details": [firewall_block_reason, "Access confined to Supabase observability telemetry"],
+            }],
+            "model": "platform-firewall",
+            "source": "firewall",
+        }
 
     # 1. If Gemini API key is provided or present in environment, invoke Gemini over Supabase context
     active_key = gemini_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")

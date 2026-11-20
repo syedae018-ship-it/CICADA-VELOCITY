@@ -26,6 +26,120 @@ interface Card {
   details?: string[];
 }
 
+/**
+ * Platform AI Firewall & Guardrail
+ * Blocks arbitrary code generation and off-topic questions.
+ * Enforces that responses must relate to Velocity Cicada platform & Supabase telemetry.
+ */
+function checkPlatformFirewall(query: string): { blocked: boolean; reason?: string } {
+  const q = query.toLowerCase().trim();
+
+  // 1. Jailbreak / Injection Detection
+  const injectionPatterns = [
+    "ignore previous instructions",
+    "ignore all previous",
+    "dan mode",
+    "jailbreak",
+    "bypass firewall",
+    "pretend you are an unrestricted",
+    "disregard rules",
+    "output your system prompt",
+  ];
+  if (injectionPatterns.some((pattern) => q.includes(pattern))) {
+    return {
+      blocked: true,
+      reason: "Prompt injection or guardrail bypass attempt detected.",
+    };
+  }
+
+  // 2. Prohibited Code Generation Requests
+  // (We allow CLI operational commands like 'service restart' or 'rollback', but strictly ban general software code generation)
+  const codeGenTriggers = [
+    "write code",
+    "write a script",
+    "write a python",
+    "write python",
+    "write a program",
+    "write a function",
+    "code a",
+    "code me",
+    "generate code",
+    "generate a script",
+    "build an app",
+    "create an app",
+    "write javascript",
+    "write html",
+    "write css",
+    "write react",
+    "create a website",
+    "write a bot",
+    "scrape",
+    "leetcode",
+  ];
+
+  const hasCodeGenTrigger = codeGenTriggers.some((t) => q.includes(t));
+  const isPlatformOperationalCommand =
+    q.includes("collector") ||
+    q.includes("service") ||
+    q.includes("windows_service") ||
+    q.includes("rollback") ||
+    q.includes("remediation");
+
+  if (hasCodeGenTrigger && !isPlatformOperationalCommand) {
+    return {
+      blocked: true,
+      reason: "Arbitrary software code generation is barred by platform policy.",
+    };
+  }
+
+  // 3. Prohibited Off-Topic & Irrelevant Queries
+  const offTopicPatterns = [
+    "write a poem",
+    "write a story",
+    "write an essay",
+    "tell a joke",
+    "who is ",
+    "who was ",
+    "capital of ",
+    "weather in ",
+    "recipe for ",
+    "translate to ",
+    "meaning of life",
+    "solve this math",
+    "derivative of",
+    "integral of",
+    "football",
+    "basketball",
+    "cricket",
+    "movie",
+    "celebrity",
+    "recipe",
+  ];
+
+  if (offTopicPatterns.some((p) => q.startsWith(p) || q.includes(p))) {
+    // Only allow if it mentions infrastructure/observability keywords
+    const isObservabilityTopic =
+      q.includes("alert") ||
+      q.includes("incident") ||
+      q.includes("cpu") ||
+      q.includes("metric") ||
+      q.includes("collector") ||
+      q.includes("supabase") ||
+      q.includes("cicada") ||
+      q.includes("security") ||
+      q.includes("telemetry");
+
+    if (!isObservabilityTopic) {
+      return {
+        blocked: true,
+        reason: "Off-topic query unrelated to infrastructure observability or platform data.",
+      };
+    }
+  }
+
+  return { blocked: false };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -35,8 +149,30 @@ export async function POST(req: NextRequest) {
 
     if (!message) {
       return NextResponse.json({
-        reply: "Please enter a question or query for the AIOps engine.",
+        reply: "Please enter an observability question or query for the AIOps engine.",
         cards: [],
+      });
+    }
+
+    // ── FIREWALL CHECK ──────────────────────────────────────────────────────────
+    const firewallResult = checkPlatformFirewall(message);
+    if (firewallResult.blocked) {
+      return NextResponse.json({
+        reply: `🛡️ [AIOps Platform Firewall Alert]\n\nRequest Blocked: ${firewallResult.reason}\n\nThe Velocity Cicada AIOps Co-Pilot is strictly firewalled to infrastructure observability, incident correlation, and explainable recommendations derived directly from your Supabase telemetry.\n\nStrict Boundaries Enforced:\n❌ Arbitrary code generation, application development, and non-platform scripts are strictly prohibited.\n❌ General trivia, off-topic inquiries, and non-observability tasks are barred.\n\n✅ Permitted Topics:\n• Open alerts & threshold crossings\n• Correlated incidents & root-cause hypotheses\n• Host telemetry metrics (CPU, RAM, Disk, Latency)\n• Collector fleet health & buffer status\n• AIOps remediation recommendations & rollback plans\n• Platform security posture (5-layer defense, local redaction, HMAC)`,
+        cards: [
+          {
+            kind: "stat",
+            title: "Platform Firewall Active",
+            subtitle: "Security Boundary Enforced",
+            severity: "high",
+            details: [
+              firewallResult.reason || "Unauthorized query domain",
+              "Access confined to Supabase observability telemetry",
+            ],
+          },
+        ],
+        model: "platform-firewall",
+        source: "firewall",
       });
     }
 
@@ -279,25 +415,30 @@ export async function POST(req: NextRequest) {
   }
 }
 
-/** Calls Google Gemini REST API */
+/** Calls Google Gemini REST API with Strict AI Firewall System Instructions */
 async function callGemini(apiKey: string, userMessage: string, context: any): Promise<string | null> {
-  // Use gemini-2.0-flash or gemini-1.5-flash
   const models = ["gemini-2.0-flash", "gemini-1.5-flash"];
 
-  for (const model of models) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-      const systemInstruction = `You are the Velocity Cicada AIOps Co-Pilot, an expert Site Reliability Engineer and infrastructure cybersecurity specialist.
+  const systemInstruction = `You are the Velocity Cicada AIOps Co-Pilot, an expert Site Reliability Engineer and infrastructure cybersecurity specialist.
 You have real-time access to live observability telemetry directly from Supabase for tenant "${context.tenant_id}".
-Always answer based strictly on the live Supabase context provided.
-Be concise, technical, and explainable. Point out specific root causes, metric values (CPU %, memory %, latency ms), and incident IDs where relevant.
-Remind the operator that raw logs remained on the local host and only verified allow-listed metadata was sent to Supabase.`;
 
-      const prompt = `LIVE SUPABASE CONTEXT:
+CRITICAL SECURITY FIREWALL & GUARDRAIL POLICY (STRICTLY ENFORCED):
+1. DOMAIN BOUNDARY: You MUST strictly and exclusively answer questions related to Velocity Cicada infrastructure observability, telemetry metrics, alerts, incidents, collectors, and recommendations based on the provided Supabase data.
+2. NO ARBITRARY CODE GENERATION: You MUST NEVER write arbitrary application code, scripts, software, web apps, or general programming solutions (e.g., Python scripts, React components, scrapers, Discord bots). The ONLY permissible commands are specific platform remediation or rollback CLI commands (e.g. "python -m collector.windows_service --restart") directly addressing an active incident in Supabase.
+3. NO OFF-TOPIC QUERIES: You MUST REFUSE to answer general knowledge questions, trivia, creative writing, homework, riddles, or any topic outside of the customer's observability infrastructure.
+4. REFUSAL PROTOCOL: If the user asks for code generation or asks any off-topic question, refuse immediately with:
+"🛡️ [AIOps Platform Firewall Alert] Request Denied: I am strictly firewalled to infrastructure observability, incident triage, and explainable recommendations based on your Supabase telemetry data. I cannot write arbitrary code or answer questions unrelated to your platform data."
+5. PRIVACY GUARANTEE: Remind the user that raw logs remain locally on their host and only verified allow-listed metadata is ingested into Supabase.`;
+
+  const prompt = `LIVE SUPABASE CONTEXT:
 ${JSON.stringify(context, null, 2)}
 
 OPERATOR QUESTION:
 ${userMessage}`;
+
+  for (const model of models) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
       const res = await fetch(url, {
         method: "POST",
@@ -313,7 +454,7 @@ ${userMessage}`;
             },
           ],
           generationConfig: {
-            temperature: 0.3,
+            temperature: 0.2,
             maxOutputTokens: 800,
           },
         }),
@@ -389,7 +530,5 @@ function generateSupabaseReply(query: string, context: any): string {
 • Collectors Online: ${summary.collectors_online}
 • Pending Recommendations: ${summary.pending_recommendations}
 
-Ask me about specific alerts, incidents, CPU load, collector status, or recommended actions.
-
-💡 Tip: Connect a Gemini API Key to unlock advanced generative reasoning with Google Gemini!`;
+Ask me about specific alerts, incidents, CPU load, collector status, or recommended actions.`;
 }
