@@ -7,7 +7,6 @@ from typing import List, Dict, Any
 from collector.config import settings
 from collector.pseudo import source_id
 from collector.detect import detect_events_in_window
-from collector.store import store_egress_payload
 
 START_TIME = time.time()
 _seq_counter = 0
@@ -21,6 +20,8 @@ ALLOWED_METRICS = {
 BOOLEAN_METRICS = {"service_up", "connectivity_ok"}
 
 def next_seq() -> int:
+    """Provisional per-process counter so a payload is schema-valid on its own.
+    transport.submit() replaces it with the persistent, restart-safe sequence number."""
     global _seq_counter
     _seq_counter += 1
     return _seq_counter

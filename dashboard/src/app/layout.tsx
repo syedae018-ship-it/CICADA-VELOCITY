@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Login | Velocity Cicada",
-  description: "Secure, modern authentication portal powered by Next.js",
+  title: "Velocity Cicada | AIOps Observability",
+  description: "Secure two-tier AIOps observability dashboard",
 };
 
 export default function RootLayout({

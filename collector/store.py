@@ -36,18 +36,6 @@ def init_db():
             local_details_json TEXT NOT NULL
         )
     """)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS egress_audit (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            payload_id TEXT NOT NULL UNIQUE,
-            seq INTEGER,
-            sent_at_utc TEXT NOT NULL,
-            sha256 TEXT NOT NULL,
-            attempts INTEGER DEFAULT 1,
-            result TEXT,
-            body TEXT NOT NULL
-        )
-    """)
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_raw_received ON raw_records(received_utc)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_raw_kind ON raw_records(kind)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_detections_time ON detections(detected_utc)")
@@ -151,44 +139,6 @@ def get_detections(limit: int = 50) -> List[Dict[str, Any]]:
             "local_details": json.loads(r["local_details_json"])
         })
     return result
-
-def store_egress_payload(payload_id: str, seq: int, sent_at_utc: str, sha256_hash: str, body_str: str, result: str = "sent"):
-    init_db()
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT OR REPLACE INTO egress_audit (payload_id, seq, sent_at_utc, sha256, attempts, result, body)
-        VALUES (?, ?, ?, ?, 1, ?, ?)
-    """, (payload_id, seq, sent_at_utc, sha256_hash, result, body_str))
-    conn.commit()
-    conn.close()
-
-def get_egress_records(limit: int = 20) -> List[Dict[str, Any]]:
-    init_db()
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT payload_id, seq, sent_at_utc, sha256, attempts, result, body
-        FROM egress_audit
-        ORDER BY id DESC
-        LIMIT ?
-    """, (limit,))
-    rows = cursor.fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
-
-def get_egress_by_id(payload_id: str) -> Optional[Dict[str, Any]]:
-    init_db()
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT payload_id, seq, sent_at_utc, sha256, attempts, result, body
-        FROM egress_audit
-        WHERE payload_id = ?
-    """, (payload_id,))
-    row = cursor.fetchone()
-    conn.close()
-    return dict(row) if row else None
 
 def purge_old_records(retention_hours: int = 24):
     init_db()

@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "payload_id": "e6f7a8b9-c0d1-4e2f-9a3b-4c5d6e7f8091",
+  "tenant_id": "t_acme",
+  "collector_id": "c_blr01",
+  "region": "ap-south-1",
+  "seq": 99,
+  "sent_at_utc": "2026-11-20T09:14:55Z",
+  "source_tz": "Asia/Kolkata",
+  "window": { "start_utc": "2026-11-20T09:14:50Z", "end_utc": "2026-11-20T09:14:55Z" },
+  "sources": [
+    {
+      "source_id": "src_9f2c4a1b7e30",
+      "source_type": "server",
+      "service": "payments-api",
+      "event_time_utc": "2026-11-20T09:14:54Z",
+      "metrics": { "cpu_pct": 36.0, "mem_pct": 56.8, "latency_ms": 21.0, "service_up": true }
+    }
+  ],
+  "events": [],
+  "collector_health": { "version": "0.1.0", "cpu_pct": 3.0, "mem_pct": 9.7, "buffer_depth": 4, "config_hash": "a1b2c3d4e5f6", "uptime_s": 3595 },
+  "redaction_stats": { "records_in": 20, "secrets_redacted": 0, "fields_dropped": 40 }
+}

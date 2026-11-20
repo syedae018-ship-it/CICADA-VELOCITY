@@ -1,7 +1,7 @@
 {
-  "name": "velocity-cicada",
+  "name": "velocity-cicada-dashboard",
   "version": "1.0.0",
-  "description": "Next.js Authentication Application",
+  "description": "Velocity Cicada SaaS dashboard (Tier 2 UI)",
   "private": true,
   "scripts": {
     "dev": "next dev",

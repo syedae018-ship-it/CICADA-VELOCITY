@@ -1,27 +1,41 @@
-from contextlib import asynccontextmanager
-from fastapi import FastAPI
-import asyncio
+"""Tier 1 collector: local API on port 8001. Owner: Person A (docs/members/PERSON_A_collector.md).
 
-from collector.routes import router, aggregation_loop, retention_cleanup_loop
-from collector.store import init_db
+Run from repo root:  uvicorn collector.app:app --port 8001 --reload
+"""
+import time
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+
+import transport
+from collector import config
+from collector import routes as collector_routes
+from collector.routes import router as collector_router   # Person A's endpoints
+from transport.router import router as transport_router   # Person B's endpoints (pre-wired)
+
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup
-    init_db()
-    agg_task = asyncio.create_task(aggregation_loop())
-    cleanup_task = asyncio.create_task(retention_cleanup_loop())
+async def lifespan(_app: FastAPI):
+    await collector_routes.startup()   # Person A: aggregation / retention background tasks
+    await transport.startup()          # Person B: sender loop + heartbeat
     yield
-    # Shutdown
-    agg_task.cancel()
-    cleanup_task.cancel()
-    await asyncio.gather(agg_task, cleanup_task, return_exceptions=True)
 
-app = FastAPI(
-    title="CICADA-VELOCITY Collector & Privacy Service",
-    description="Tier 1 customer-side collector: redacts secrets, generates pseudonymous IDs, detects security anomalies locally, and outputs allow-listed metadata.",
-    version="1.0.0",
-    lifespan=lifespan
-)
 
-app.include_router(router)
+app = FastAPI(title="Velocity Cicada Collector (Tier 1)", lifespan=lifespan)
+app.include_router(collector_router)
+app.include_router(transport_router)
+STARTED = time.time()
+
+
+@app.get("/local/status")
+def status() -> dict:
+    return {
+        "collector_id": config.COLLECTOR_ID,
+        "tenant_id": config.TENANT_ID,
+        "region": config.REGION,
+        "version": config.VERSION,
+        "saas_reachable": None,   # TODO(Person B): from sender loop
+        "buffer_depth": 0,        # TODO(Person B): from outbox
+        "last_sent_utc": None,
+        "uptime_s": int(time.time() - STARTED),
+    }

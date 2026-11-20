@@ -7,13 +7,15 @@ import time
 from collector.config import settings
 from collector.adapters.simulator import adapt_to_raw_record
 from collector.redact import redact_obj
+from collector.store import init_db
 from collector.store import (
-    store_raw_record, get_raw_records, get_detections,
-    get_egress_records, get_egress_by_id, purge_old_records
+    store_raw_record, get_raw_records, get_detections, purge_old_records
 )
 from collector.aggregate import build_payload, get_collector_health
-from collector.transport_stub import submit
+import transport
 
+# Person A's endpoints. /local/status is in collector/app.py; /local/egress, /local/buffer and
+# /local/saas-link belong to transport (Person B, transport/router.py).
 router = APIRouter()
 
 # In-memory buffer of sanitized window records for the 5-second aggregation flush
@@ -22,24 +24,6 @@ _records_in_count = 0
 _secrets_redacted_count = 0
 _window_start_utc = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 _lock = asyncio.Lock()
-
-_saas_link_enabled = True
-
-@router.get("/local/status")
-async def get_status():
-    async with _lock:
-        depth = len(_current_window_records)
-    health = get_collector_health(buffer_depth=depth)
-    return {
-        "collector_id": settings.COLLECTOR_ID,
-        "tenant_id": settings.TENANT_ID,
-        "region": settings.REGION,
-        "version": settings.VERSION,
-        "saas_reachable": _saas_link_enabled,
-        "buffer_depth": depth,
-        "last_sent_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-        "uptime_s": health["uptime_s"]
-    }
 
 @router.post("/local/raw")
 async def ingest_raw(record: Dict[str, Any]):
@@ -79,33 +63,6 @@ async def list_raw(limit: int = Query(50, ge=1, le=500)):
 async def list_detections(limit: int = Query(50, ge=1, le=500)):
     return get_detections(limit=limit)
 
-@router.get("/local/egress")
-async def list_egress(limit: int = Query(20, ge=1, le=100)):
-    return get_egress_records(limit=limit)
-
-@router.get("/local/egress/{payload_id}")
-async def get_egress_payload(payload_id: str):
-    rec = get_egress_by_id(payload_id)
-    if not rec:
-        raise HTTPException(status_code=404, detail="Payload not found in egress log")
-    return rec
-
-@router.get("/local/buffer")
-async def get_buffer():
-    async with _lock:
-        depth = len(_current_window_records)
-    return {
-        "depth": depth,
-        "oldest_utc": _window_start_utc,
-        "items": []
-    }
-
-@router.post("/local/saas-link")
-async def set_saas_link(payload: Dict[str, Any]):
-    global _saas_link_enabled
-    _saas_link_enabled = bool(payload.get("enabled", True))
-    return {"saas_reachable": _saas_link_enabled}
-
 async def flush_aggregation_window():
     global _current_window_records, _records_in_count, _secrets_redacted_count, _window_start_utc
     async with _lock:
@@ -132,11 +89,11 @@ async def flush_aggregation_window():
         end_utc=end_utc,
         secrets_redacted_count=redacted_count,
         records_in_count=in_count,
-        buffer_depth=0
+        buffer_depth=transport.get_buffer_depth() if hasattr(transport, "get_buffer_depth") else 0
     )
-    
-    # Submit to transport
-    submit(payload)
+
+    # Hand over to transport: it assigns the persistent seq, validates, buffers and sends
+    transport.submit(payload)
 
 async def aggregation_loop():
     while True:
@@ -157,3 +114,14 @@ async def retention_cleanup_loop():
             break
         except Exception as e:
             print(f"[Retention Cleanup Error] {e}")
+
+
+_tasks: List[asyncio.Task] = []
+
+
+async def startup() -> None:
+    """Called once by collector/app.py on boot: local DB + 5-s aggregation + retention purge."""
+    init_db()
+    if not _tasks:
+        _tasks.append(asyncio.create_task(aggregation_loop()))
+        _tasks.append(asyncio.create_task(retention_cleanup_loop()))
