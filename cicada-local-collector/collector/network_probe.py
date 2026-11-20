@@ -69,43 +69,55 @@ def parse_ping_output(output: str, is_windows: bool) -> Dict[str, Optional[float
     return result
 
 
+def _tcp_latency_probe(target: str, port: int = 443, count: int = 3, timeout_sec: float = 1.5) -> Dict[str, Any]:
+    """Pure-Python TCP-connect latency probe (no subprocess, no ping).
+
+    Opens short-lived TCP connections to `target:port` and measures round-trip.
+    Avoids spawning the OS `ping` binary, which flashes a console window on
+    some Windows configurations even with CREATE_NO_WINDOW set.
+    """
+    rtts = []
+    failures = 0
+    for _ in range(count):
+        t0 = time.perf_counter()
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(timeout_sec)
+        try:
+            sock.connect((target, port))
+            rtts.append((time.perf_counter() - t0) * 1000.0)
+        except Exception:
+            failures += 1
+        finally:
+            try:
+                sock.close()
+            except Exception:
+                pass
+
+    if rtts:
+        latency = round(sum(rtts) / len(rtts), 1)
+    else:
+        latency = None
+    loss = round((failures / count) * 100.0, 1) if count else None
+    return {"latency_ms": latency, "packet_loss_percent": loss}
+
+
 def measure_network_quality(target: str = DEFAULT_PROBE_TARGET, count: int = 3, timeout_sec: int = 2) -> Dict[str, Any]:
     """Probe network latency, packet loss, and DNS response time.
 
-    Args:
-        target: IP address or hostname to probe (default: 1.1.1.1).
-        count: Number of ping packets to send.
-        timeout_sec: Timeout per ping request.
-
-    Returns:
-        Dictionary with probe_target, latency_ms, packet_loss_percent, dns_response_ms, and status.
+    Implementation note: uses a pure-Python TCP connect probe instead of the
+    OS `ping` command, so no console window is ever spawned on Windows.
     """
-    is_windows = (os.name == "nt")
     dns_ms = measure_dns_response_time()
 
-    if is_windows:
-        cmd = ["ping", "-n", str(count), "-w", str(timeout_sec * 1000), target]
-    else:
-        cmd = ["ping", "-c", str(count), "-W", str(timeout_sec), target]
-
     try:
-        proc = safe_run_subprocess(
-            cmd,
-            timeout=timeout_sec * count + 2,
-        )
-
-        combined_output = f"{proc.stdout}\n{proc.stderr}"
-        parsed = parse_ping_output(combined_output, is_windows=is_windows)
-
-        latency = parsed["latency_ms"]
-        loss = parsed["packet_loss_percent"]
+        probed = _tcp_latency_probe(target=target, port=443, count=max(1, count), timeout_sec=float(timeout_sec))
+        latency = probed["latency_ms"]
+        loss = probed["packet_loss_percent"]
 
         if loss is not None and loss >= 100.0:
             status = "UNREACHABLE"
         elif latency is not None:
             status = "CONNECTED"
-        elif proc.returncode != 0:
-            status = "FAILED"
         else:
             status = "UNKNOWN"
 
@@ -117,14 +129,6 @@ def measure_network_quality(target: str = DEFAULT_PROBE_TARGET, count: int = 3, 
             "status": status,
         }
 
-    except subprocess.TimeoutExpired:
-        return {
-            "probe_target": target,
-            "latency_ms": None,
-            "packet_loss_percent": 100.0,
-            "dns_response_ms": dns_ms,
-            "status": "TIMEOUT",
-        }
     except Exception as e:
         logger.debug("Network probe exception: %s", e)
         return {

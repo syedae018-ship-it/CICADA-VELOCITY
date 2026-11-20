@@ -12,11 +12,20 @@ preserving user privacy:
 import logging
 import os
 import subprocess
+import sys
 from typing import Any, Dict
 
 from collector.subprocess_util import safe_run_subprocess
 
 logger = logging.getLogger(__name__)
+
+# Shell-based probes (wevtutil / log show) are skipped by default inside the
+# frozen Windows GUI exe, so no child console ever has a chance to flash.
+# Set CICADA_ENABLE_SHELL_PROBES=1 to re-enable them (e.g. for CLI debugging).
+_SHELL_PROBES_ENABLED = (
+    os.getenv("CICADA_ENABLE_SHELL_PROBES") == "1"
+    or not (getattr(sys, "frozen", False) and os.name == "nt")
+)
 
 
 def count_windows_failed_logins() -> Dict[str, Any]:
@@ -114,6 +123,8 @@ def get_failed_login_telemetry() -> Dict[str, Any]:
     Returns:
         Dictionary with recent_failed_logins_count and audit_status.
     """
+    if not _SHELL_PROBES_ENABLED:
+        return {"recent_failed_logins_count": 0, "audit_status": "DISABLED_IN_BG"}
     if os.name == "nt":
         return count_windows_failed_logins()
     elif os.uname().sysname == "Darwin":

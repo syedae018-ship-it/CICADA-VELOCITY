@@ -16,10 +16,18 @@ import logging
 import os
 import shutil
 import subprocess
+import sys
 import time
 from typing import Any, Dict, Optional
 
 from collector.subprocess_util import safe_run_subprocess
+
+# Shell-based probes (powershell/WMI, nvidia-smi) are skipped by default in
+# the frozen Windows GUI so no child console ever flashes on the 10s loop.
+_SHELL_PROBES_ENABLED = (
+    os.getenv("CICADA_ENABLE_SHELL_PROBES") == "1"
+    or not (getattr(sys, "frozen", False) and os.name == "nt")
+)
 
 try:
     import psutil
@@ -52,8 +60,8 @@ def get_cpu_temperature() -> Optional[float]:
         except Exception:
             pass
 
-    # Windows WMI / thermal zone probe if accessible
-    if os.name == "nt":
+    # Windows WMI / thermal zone probe if accessible (shell probe — opt-in)
+    if os.name == "nt" and _SHELL_PROBES_ENABLED:
         try:
             cmd = ["powershell", "-NoProfile", "-Command", 
                    "(Get-CimInstance -Namespace root/wmi -ClassName MSAcpi_ThermalZoneTemperature -ErrorAction SilentlyContinue).CurrentTemperature"]
@@ -72,8 +80,8 @@ def get_cpu_temperature() -> Optional[float]:
 
 def get_gpu_usage() -> Optional[float]:
     """Retrieve GPU usage percentage when a supported GPU is present."""
-    # Check NVIDIA GPU via nvidia-smi
-    if shutil.which("nvidia-smi"):
+    # Check NVIDIA GPU via nvidia-smi (shell probe — opt-in)
+    if _SHELL_PROBES_ENABLED and shutil.which("nvidia-smi"):
         try:
             proc = safe_run_subprocess(
                 ["nvidia-smi", "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"],
