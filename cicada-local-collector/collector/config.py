@@ -80,8 +80,13 @@ class CollectorConfig:
 
     @property
     def is_authenticated(self) -> bool:
-        """Return True if device-specific authentication token and explicit consent are present."""
-        return bool(self.is_cloud_enabled and self.supabase_token and self.consent_given)
+        """Return True if the collector has enough credentials to upload to Supabase.
+
+        Simplified flow: URL + Anon/Publishable Key is enough. A device token is
+        optional (used only when RLS requires a per-device JWT). Consent is
+        implicit once the user saves enrollment in the GUI.
+        """
+        return bool(self.is_cloud_enabled and self.consent_given)
 
     def sanitized_summary(self) -> dict:
         """Return non-sensitive configuration summary for terminal UI and logging."""

@@ -438,60 +438,72 @@ class CicadaApp(tk.Tk):
     def _open_connect_dialog(self):
         dialog = tk.Toplevel(self)
         dialog.title("Connect to CICADA Cloud")
-        dialog.geometry("560x420")
+        dialog.geometry("600x360")
         dialog.transient(self)
         dialog.grab_set()
 
         container = ttk.Frame(dialog, padding="20")
         container.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Label(container, text="Enroll Laptop to CICADA Tenant", font=("Segoe UI", 12, "bold")).pack(anchor=tk.W, pady=(0, 10))
+        ttk.Label(container, text="Connect this laptop to CICADA Cloud", font=("Segoe UI", 12, "bold")).pack(anchor=tk.W)
+        ttk.Label(
+            container,
+            text="Paste your Supabase project URL and anon/publishable key. Clicking Save\nalso records your consent to send pseudonymous telemetry.",
+            foreground="#555",
+        ).pack(anchor=tk.W, pady=(2, 12))
 
         cfg = CollectorConfig()
         f_fields = ttk.Frame(container)
         f_fields.pack(fill=tk.X, pady=5)
 
         ttk.Label(f_fields, text="Supabase URL:").grid(row=0, column=0, sticky=tk.W, pady=4)
-        ent_url = ttk.Entry(f_fields, width=46)
+        ent_url = ttk.Entry(f_fields, width=52)
         ent_url.grid(row=0, column=1, sticky=tk.W, pady=4)
         ent_url.insert(0, cfg.supabase_url or "")
 
-        ttk.Label(f_fields, text="Publishable Key:").grid(row=1, column=0, sticky=tk.W, pady=4)
-        ent_key = ttk.Entry(f_fields, width=46)
+        ttk.Label(f_fields, text="Anon / Publishable Key:").grid(row=1, column=0, sticky=tk.W, pady=4)
+        ent_key = ttk.Entry(f_fields, width=52)
         ent_key.grid(row=1, column=1, sticky=tk.W, pady=4)
         ent_key.insert(0, cfg.supabase_key or "")
 
-        ttk.Label(f_fields, text="Device Token (JWT):").grid(row=2, column=0, sticky=tk.W, pady=4)
-        ent_token = ttk.Entry(f_fields, width=46)
-        ent_token.grid(row=2, column=1, sticky=tk.W, pady=4)
-        ent_token.insert(0, cfg.supabase_token or "")
+        # Advanced (optional) fields — collapsed by default
+        adv_shown = tk.BooleanVar(value=False)
+        adv_frame = ttk.Frame(container)
 
-        ttk.Label(f_fields, text="Tenant UUID:").grid(row=3, column=0, sticky=tk.W, pady=4)
-        ent_tenant = ttk.Entry(f_fields, width=46)
-        ent_tenant.grid(row=3, column=1, sticky=tk.W, pady=4)
+        def toggle_advanced():
+            if adv_shown.get():
+                adv_frame.pack_forget()
+                btn_adv.config(text="Advanced ▸")
+                adv_shown.set(False)
+            else:
+                adv_frame.pack(fill=tk.X, pady=(6, 0))
+                btn_adv.config(text="Advanced ▾")
+                adv_shown.set(True)
+
+        btn_adv = ttk.Button(container, text="Advanced ▸", command=toggle_advanced, width=14)
+        btn_adv.pack(anchor=tk.W, pady=(10, 0))
+
+        ttk.Label(adv_frame, text="Tenant UUID:").grid(row=0, column=0, sticky=tk.W, pady=4)
+        ent_tenant = ttk.Entry(adv_frame, width=52)
+        ent_tenant.grid(row=0, column=1, sticky=tk.W, pady=4)
         ent_tenant.insert(0, cfg.tenant_id or "00000000-0000-0000-0000-000000000000")
 
-        var_consent = tk.BooleanVar(value=cfg.consent_given)
-        chk_consent = ttk.Checkbutton(
-            container,
-            text="I explicitly consent to transmitting pseudonymous operational system telemetry\n(CPU, RAM, Disk, Network speeds) to my organization's CICADA cloud tenant.",
-            variable=var_consent,
-        )
-        chk_consent.pack(anchor=tk.W, pady=15)
+        ttk.Label(adv_frame, text="Device Token (optional):").grid(row=1, column=0, sticky=tk.W, pady=4)
+        ent_token = ttk.Entry(adv_frame, width=52)
+        ent_token.grid(row=1, column=1, sticky=tk.W, pady=4)
+        ent_token.insert(0, cfg.supabase_token or "")
 
         def save_and_close():
             url = ent_url.get().strip()
             key = ent_key.get().strip()
             token = ent_token.get().strip()
-            tenant = ent_tenant.get().strip()
-            consent = var_consent.get()
-
-            if not consent:
-                messagebox.showwarning("Consent Required", "Explicit consent is required before connecting this device to the cloud.")
-                return
+            tenant = ent_tenant.get().strip() or "00000000-0000-0000-0000-000000000000"
 
             if not url or not key:
-                messagebox.showwarning("Missing Fields", "Please specify both Supabase URL and Publishable Key.")
+                messagebox.showwarning("Missing Fields", "Please specify both Supabase URL and the Anon/Publishable Key.")
+                return
+            if not url.startswith("https://"):
+                messagebox.showwarning("Invalid URL", "Supabase URL must start with https://")
                 return
 
             manager = DeviceEnrollmentManager()
@@ -502,17 +514,17 @@ class CicadaApp(tk.Tk):
                 device_token=token,
                 supabase_url=url,
                 supabase_key=key,
-                consent_given=consent,
+                consent_given=True,
             )
 
             if saved:
-                messagebox.showinfo("Saved", "Configuration updated. Telemetry will now transmit securely to Supabase.")
+                messagebox.showinfo("Connected", "This device is now streaming pseudonymous telemetry to Supabase.\nOpen the Velocity Cicada dashboard to see it live.")
                 dialog.destroy()
             else:
-                messagebox.showerror("Error", "Could not save enrollment configuration.")
+                messagebox.showerror("Error", "Could not save connection settings.")
 
         btn_row = ttk.Frame(container)
-        btn_row.pack(fill=tk.X, pady=(15, 0), side=tk.BOTTOM)
+        btn_row.pack(fill=tk.X, pady=(20, 0), side=tk.BOTTOM)
         ttk.Button(btn_row, text="Cancel", command=dialog.destroy).pack(side=tk.RIGHT, padx=5)
         ttk.Button(btn_row, text="Save & Connect", command=save_and_close).pack(side=tk.RIGHT, padx=5)
 

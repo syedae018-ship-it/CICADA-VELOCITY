@@ -20,6 +20,19 @@ import sys
 import time
 from typing import Any, Optional
 
+# ---------------------------------------------------------------------------
+# Silence ALL stdout/stderr when running as a frozen Windows GUI exe
+# (PyInstaller --noconsole). Prevents any accidental console window / spam.
+# ---------------------------------------------------------------------------
+_IS_FROZEN_GUI = getattr(sys, "frozen", False) and os.name == "nt" and ("--cli" not in sys.argv) and ("--once" not in sys.argv)
+if _IS_FROZEN_GUI:
+    try:
+        _devnull = open(os.devnull, "w", encoding="utf-8")
+        sys.stdout = _devnull
+        sys.stderr = _devnull
+    except Exception:
+        pass
+
 # Ensure project root is in python path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -46,12 +59,15 @@ from collector.security import get_failed_login_telemetry
 from collector.supabase_client import SupabaseTelemetryUploader, cloud_auditor
 from collector.system_info import get_system_info
 
-# Configure clean logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s] %(levelname)s - %(message)s",
-    datefmt="%H:%M:%S",
-)
+# Configure clean logging (silent in frozen GUI mode to avoid any terminal spam)
+if _IS_FROZEN_GUI:
+    logging.basicConfig(level=logging.CRITICAL, handlers=[logging.NullHandler()])
+else:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="[%(asctime)s] %(levelname)s - %(message)s",
+        datefmt="%H:%M:%S",
+    )
 logger = logging.getLogger("cicada.collector")
 
 
