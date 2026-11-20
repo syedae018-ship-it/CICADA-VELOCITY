@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Login | Velocity Cicada",
-  description: "Secure, modern authentication portal powered by Next.js",
+  title: "Velocity Cicada — Telemetry & AIOps Console",
+  description: "Privacy-Preserving Telemetry & AIOps Platform",
 };
 
 export default function RootLayout({
@@ -13,7 +13,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-slate-950 text-slate-100 antialiased selection:bg-indigo-500 selection:text-white">
+      <body className="min-h-screen bg-white text-neutral-900 antialiased selection:bg-neutral-900 selection:text-white font-['Helvetica_Neue',Helvetica,Arial,sans-serif]">
         {children}
       </body>
     </html>

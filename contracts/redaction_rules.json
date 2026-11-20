@@ -1,0 +1,17 @@
+{
+  "version": "1.0",
+  "description": "Applied by the collector to every raw record BEFORE it is stored or parsed further. Order matters: specific rules first. Python `re` syntax.",
+  "rules": [
+    { "name": "private_key", "pattern": "-----BEGIN [A-Z ]*PRIVATE KEY-----[\\s\\S]*?-----END [A-Z ]*PRIVATE KEY-----" },
+    { "name": "jwt", "pattern": "eyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}" },
+    { "name": "bearer_token", "pattern": "(?i)bearer\\s+[A-Za-z0-9._~+/=-]{8,}" },
+    { "name": "aws_access_key", "pattern": "AKIA[0-9A-Z]{16}" },
+    { "name": "api_key_kv", "pattern": "(?i)(api[_-]?key|secret|token|access[_-]?key)\\s*[=:]\\s*['\"]?[^\\s'\",;]{6,}" },
+    { "name": "password_kv", "pattern": "(?i)(password|passwd|pwd|pass)\\s*[=:]\\s*['\"]?[^\\s'\",;]+" },
+    { "name": "credit_card", "pattern": "\\b(?:\\d[ -]?){13,16}\\b" },
+    { "name": "email", "pattern": "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}" },
+    { "name": "ipv4", "pattern": "\\b(?:(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)\\.){3}(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)\\b" },
+    { "name": "ipv6", "pattern": "\\b(?:[A-Fa-f0-9]{1,4}:){2,7}[A-Fa-f0-9]{1,4}\\b" }
+  ],
+  "replacement": "[REDACTED:{name}]"
+}
