@@ -381,12 +381,12 @@ export async function POST(req: NextRequest) {
 
     if (geminiKey) {
       try {
-        const geminiResponse = await callGemini(geminiKey, message, telemetryContext);
-        if (geminiResponse) {
+        const geminiResult = await callGemini(geminiKey, message, telemetryContext);
+        if (geminiResult) {
           return NextResponse.json({
-            reply: geminiResponse,
+            reply: geminiResult.reply,
             cards: cards.slice(0, 6),
-            model: "gemini-2.0-flash",
+            model: geminiResult.model,
             source: "gemini+supabase",
           });
         }
@@ -416,8 +416,18 @@ export async function POST(req: NextRequest) {
 }
 
 /** Calls Google Gemini REST API with Strict AI Firewall System Instructions */
-async function callGemini(apiKey: string, userMessage: string, context: any): Promise<string | null> {
-  const models = ["gemini-2.0-flash", "gemini-1.5-flash"];
+async function callGemini(
+  apiKey: string,
+  userMessage: string,
+  context: any
+): Promise<{ reply: string; model: string } | null> {
+  const models = [
+    "gemini-3.5-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-3-flash-preview",
+    "gemini-2.5-flash",
+    "gemini-flash-latest",
+  ];
 
   const systemInstruction = `You are the Velocity Cicada AIOps Co-Pilot, an expert Site Reliability Engineer and infrastructure cybersecurity specialist.
 You have real-time access to live observability telemetry directly from Supabase for tenant "${context.tenant_id}".
@@ -463,7 +473,9 @@ ${userMessage}`;
       if (res.ok) {
         const data = await res.json();
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) return text.trim();
+        if (text) {
+          return { reply: text.trim(), model };
+        }
       } else {
         const errBody = await res.text();
         console.warn(`Gemini model ${model} returned HTTP ${res.status}: ${errBody}`);
@@ -478,8 +490,31 @@ ${userMessage}`;
 
 /** Generates deterministic response from live Supabase context */
 function generateSupabaseReply(query: string, context: any): string {
-  const q = query.toLowerCase();
+  const q = query.toLowerCase().trim();
   const { summary, open_alerts, incidents, collectors, recommendations } = context;
+
+  // Conversational greetings
+  if (
+    q === "hi" ||
+    q === "hii" ||
+    q === "hiii" ||
+    q === "hello" ||
+    q === "hey" ||
+    q === "hey there" ||
+    q.startsWith("hi ") ||
+    q.startsWith("hello ") ||
+    q.startsWith("hey ")
+  ) {
+    return `Hello! 👋 I am your Velocity Cicada AIOps Co-Pilot connected directly to your live Supabase telemetry.
+
+Here is your current platform snapshot for tenant "${context.tenant_id}":
+• Open Alerts: ${summary.open_alerts}
+• Active Incidents: ${summary.active_incidents}
+• Collectors Online: ${summary.collectors_online}
+• Pending Recommendations: ${summary.pending_recommendations}
+
+Everything is live and synced. What would you like to inspect today? (e.g., "check alerts", "cpu load", "incident root cause", "collector health")`;
+  }
 
   if (q.includes("alert") || q.includes("warning") || q.includes("firing")) {
     if (summary.open_alerts === 0) {

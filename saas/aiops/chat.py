@@ -62,8 +62,8 @@ def _check_platform_firewall(query: str) -> Optional[str]:
     return None
 
 
-def _call_gemini_api(api_key: str, message: str, tenant_id: str, alerts: list, incidents: list, collectors: list, recs: list) -> Optional[str]:
-    models = ["gemini-2.0-flash", "gemini-1.5-flash"]
+def _call_gemini_api(api_key: str, message: str, tenant_id: str, alerts: list, incidents: list, collectors: list, recs: list) -> Optional[tuple[str, str]]:
+    models = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3-flash-preview", "gemini-2.5-flash", "gemini-flash-latest"]
     context_str = json.dumps({
         "tenant_id": tenant_id,
         "open_alerts": alerts[:4],
@@ -103,7 +103,7 @@ def _call_gemini_api(api_key: str, message: str, tenant_id: str, alerts: list, i
                 if candidates:
                     text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text")
                     if text:
-                        return text.strip()
+                        return text.strip(), model
         except Exception:
             continue
     return None
@@ -491,8 +491,9 @@ def process_chat_message(message: str, tenant_id: str, context: str = "", gemini
         inc = _incidents(tenant_id)
         col = _collectors(tenant_id)
         rc = _recs(tenant_id)
-        gemini_reply = _call_gemini_api(active_key, message, tenant_id, al, inc, col, rc)
-        if gemini_reply:
+        gemini_res = _call_gemini_api(active_key, message, tenant_id, al, inc, col, rc)
+        if gemini_res:
+            gemini_reply, used_model = gemini_res
             cards = []
             if _kw(msg, "alert", "warn", "firing") or al:
                 for a in al[:3]:
@@ -525,11 +526,24 @@ def process_chat_message(message: str, tenant_id: str, context: str = "", gemini
             return {
                 "reply": gemini_reply,
                 "cards": cards[:6],
-                "model": "gemini-2.0-flash",
+                "model": used_model,
                 "source": "gemini+supabase"
             }
 
     # 2. Deterministic Supabase-backed intent routing
+    if _kw(msg, "hi", "hii", "hiii", "hello", "hey", "greetings") and len(msg.split()) <= 4:
+        return {
+            "reply": (
+                f"Hello! 👋 I'm your Velocity Cicada AIOps Co-Pilot connected directly to live Supabase telemetry.\n\n"
+                f"Here is your current platform snapshot for tenant '{tenant_id}':\n"
+                f"• Open Alerts: {len(_alerts(tenant_id))}\n"
+                f"• Active Incidents: {len(_incidents(tenant_id))}\n"
+                f"• Monitored Collectors: {len(_collectors(tenant_id))}\n"
+                f"• Pending Recommendations: {len(_recs(tenant_id))}\n\n"
+                "Everything is live and synced. What would you like to inspect today? (e.g., 'check alerts', 'cpu status', 'incident root cause')"
+            ),
+            "cards": [],
+        }
     if _kw(msg, "help", "what can", "how do", "how can", "commands"):
         return _handle_help(msg)
     if _kw(msg, "secret", "leak", "redact", "privacy", "pii"):

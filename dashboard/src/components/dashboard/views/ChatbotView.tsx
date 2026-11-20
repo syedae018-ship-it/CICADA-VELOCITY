@@ -192,7 +192,7 @@ export default function ChatbotView({ tenantId }: ChatbotViewProps) {
               title="Configure Google Gemini API Key"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>{geminiKey ? "Gemini 2.0 Flash Active" : "Connect Gemini API"}</span>
+              <span>{geminiKey ? "Gemini Active" : "Connect Gemini API"}</span>
             </button>
             <span className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-mono font-semibold bg-black/30 border border-white/10 text-white/80">
               <span className="h-1.5 w-1.5 rounded-full bg-brand-mint animate-pulse" />
@@ -376,7 +376,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           {isGemini ? (
             <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-brand-chip text-brand-800 font-semibold border border-[#d5e6b4]">
               <Sparkles className="w-3 h-3 text-brand-700" />
-              Gemini 2.0 Flash + Supabase
+              {message.model ? message.model.replace("models/", "") : "Gemini 3.5 Flash"} + Supabase
             </span>
           ) : (
             <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-canvas-deep text-ink-soft border border-hairline font-semibold">
