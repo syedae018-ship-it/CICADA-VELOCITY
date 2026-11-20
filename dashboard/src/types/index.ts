@@ -172,6 +172,8 @@ export interface ReliabilityMetrics {
   latency_p95_s: number;
   alert_latency_s_last: number;
   outage_buffer_history: { time: string; depth: number }[];
+  replayed_after_outage?: number;
+  max_replay_delay_s?: number;
 }
 
 export interface HealthHistoryRecord {
@@ -233,3 +235,35 @@ export type DashboardTab =
   | "timeline"
   | "history"
   | "reports";
+
+export type ScenarioId =
+  | "normal"
+  | "secret"
+  | "cpu_spike"
+  | "latency"
+  | "correlation"
+  | "logins"
+  | "outage"
+  | "duplicate"
+  | "out_of_order";
+
+export const SCENARIOS: { id: ScenarioId; label: string; tab: DashboardTab }[] = [
+  { id: "normal", label: "Normal operations", tab: "overview" },
+  { id: "secret", label: "Secret in a raw log", tab: "privacy" },
+  { id: "cpu_spike", label: "CPU deviates from baseline", tab: "incidents" },
+  { id: "latency", label: "Network latency rises", tab: "sources" },
+  { id: "correlation", label: "Several alerts, one incident", tab: "incidents" },
+  { id: "logins", label: "Repeated failed logins", tab: "incidents" },
+  { id: "outage", label: "Collector loses SaaS (75 s)", tab: "fleet" },
+  { id: "duplicate", label: "Duplicate delivery", tab: "reliability" },
+  { id: "out_of_order", label: "Out-of-order events", tab: "reliability" },
+];
+
+export interface BackendStatus {
+  live: boolean;
+  storage: string | null; // "supabase" | "sqlite"
+  collectorReachable: boolean;
+  scenario: string | null;
+  secondsLeft: number;
+  lastResult: Record<string, unknown> | null;
+}

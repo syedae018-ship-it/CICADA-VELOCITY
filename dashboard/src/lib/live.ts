@@ -10,6 +10,8 @@
 
 import type {
   ActivityTimelineEvent,
+  BackendStatus,
+  ScenarioId,
   Alert,
   AlertExplanation,
   AuditLogEntry,
@@ -30,6 +32,14 @@ import type {
 
 export const SAAS_URL = process.env.NEXT_PUBLIC_SAAS_URL || "http://localhost:8000";
 export const COLLECTOR_URL = process.env.NEXT_PUBLIC_COLLECTOR_URL || "http://localhost:8001";
+// Each tenant has its own collector inside its own environment, e.g. "t_acme=http://localhost:8001,t_globex=http://localhost:8002"
+const COLLECTOR_URLS: Record<string, string> = Object.fromEntries(
+  (process.env.NEXT_PUBLIC_COLLECTOR_URLS || `t_acme=${COLLECTOR_URL},t_globex=http://localhost:8002`)
+    .split(",")
+    .map((kv) => kv.split("=").map((x) => x.trim()))
+    .filter((kv) => kv.length === 2 && kv[0] && kv[1]),
+);
+export const collectorUrlFor = (tenantId: TenantId) => COLLECTOR_URLS[tenantId] ?? COLLECTOR_URL;
 const TIMEOUT_MS = 2500;
 
 let accessToken: string | null = null;
@@ -256,13 +266,14 @@ export async function fetchLiveSnapshot(tenantId: TenantId): Promise<LiveSnapsho
   let localStatus: Json | null = null;
   try {
     const [eg, rw, st] = await Promise.all([
-      getJson(`${COLLECTOR_URL}/local/egress?limit=50`),
-      getJson(`${COLLECTOR_URL}/local/raw?limit=60`),
-      getJson(`${COLLECTOR_URL}/local/status`),
+      getJson(`${collectorUrlFor(tenantId)}/local/egress?limit=50`),
+      getJson(`${collectorUrlFor(tenantId)}/local/raw?limit=60`),
+      getJson(`${collectorUrlFor(tenantId)}/local/status`),
     ]);
     localStatus = st;
     egress = (eg as Json[]).map((e) => mapEgress(e, tenantId)).filter((e) => e.tenant_id === tenantId);
-    raw = (rw as Json[]).map(mapRaw);
+    // Lines that carried secrets first: that is what the privacy proof is about
+    raw = (rw as Json[]).map(mapRaw).sort((x, y) => Number(y.has_secret) - Number(x.has_secret));
     bufferHistory.push({ time: new Date().toLocaleTimeString(), depth: Number(st.buffer_depth ?? 0) });
     if (bufferHistory.length > 30) bufferHistory.shift();
   } catch {
@@ -278,7 +289,11 @@ export async function fetchLiveSnapshot(tenantId: TenantId): Promise<LiveSnapsho
     status: c.status === "online" ? "online" : "offline",
     state: c.status === "online" ? asState(c.state ?? "excellent") : "poor",
     last_seen_utc: iso(c.last_seen_utc),
-    buffer_depth: Number(c.buffer_depth ?? 0),
+    // During an outage the SaaS only knows the last reported depth; the collector itself knows the truth
+    buffer_depth:
+      localStatus && localStatus.collector_id === c.collector_id
+        ? Number(localStatus.buffer_depth ?? 0)
+        : Number(c.buffer_depth ?? 0),
     cpu_pct: Number(c.cpu_pct ?? 0),
     mem_pct: Number(c.mem_pct ?? 0),
     config_hash: c.config_hash ?? "",
@@ -371,6 +386,8 @@ export async function fetchLiveSnapshot(tenantId: TenantId): Promise<LiveSnapsho
     latency_p95_s: Number(reliabilityRaw.latency_p95_s ?? 0),
     alert_latency_s_last: Number(reliabilityRaw.alert_latency_s_last ?? 0),
     outage_buffer_history: [...bufferHistory],
+    replayed_after_outage: Number(reliabilityRaw.replayed_after_outage ?? 0),
+    max_replay_delay_s: Number(reliabilityRaw.max_replay_delay_s ?? 0),
   };
 
   const notifications: NotificationItem[] = [...alerts]
@@ -433,4 +450,36 @@ export async function approveLive(recId: string, tenantId: TenantId) {
 
 export async function rollbackLive(recId: string, tenantId: TenantId) {
   return postJson(`${SAAS_URL}/api/v1/recommendations/${encodeURIComponent(recId)}/rollback`, authHeader(tenantId));
+}
+
+/** SaaS health (storage backend) + this tenant's collector demo-driver status. Never throws. */
+export async function fetchBackendStatus(tenantId: TenantId): Promise<BackendStatus> {
+  const out: BackendStatus = {
+    live: false, storage: null, collectorReachable: false, scenario: null, secondsLeft: 0, lastResult: null,
+  };
+  try {
+    const h = await getJson(`${SAAS_URL}/api/v1/health`);
+    out.live = h.status === "ok";
+    out.storage = h.storage ?? null;
+  } catch {
+    return out;
+  }
+  try {
+    const d = await getJson(`${collectorUrlFor(tenantId)}/local/demo`);
+    out.collectorReachable = true;
+    out.scenario = d.scenario ?? null;
+    out.secondsLeft = Number(d.seconds_left ?? 0);
+    out.lastResult = d.last_result && Object.keys(d.last_result).length ? d.last_result : null;
+  } catch {
+    /* collector not reachable from this browser */
+  }
+  return out;
+}
+
+/** Inject a real scenario through the tenant's collector (demo driver). */
+export async function triggerScenarioLive(tenantId: TenantId, scenario: ScenarioId): Promise<Json> {
+  const r = await fetch(`${collectorUrlFor(tenantId)}/local/demo/${scenario}`, { method: "POST", cache: "no-store" });
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body?.detail ?? `HTTP ${r.status}`);
+  return body;
 }

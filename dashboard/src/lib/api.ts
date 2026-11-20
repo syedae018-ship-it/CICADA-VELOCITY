@@ -28,7 +28,15 @@ import {
   mockNotifications,
   mockTimelineEvents,
 } from "./mock";
-import { approveLive, fetchLiveSnapshot, rollbackLive, type LiveSnapshot } from "./live";
+import {
+  approveLive,
+  fetchBackendStatus,
+  fetchLiveSnapshot,
+  rollbackLive,
+  triggerScenarioLive,
+  type LiveSnapshot,
+} from "./live";
+import type { BackendStatus, ScenarioId } from "@/types";
 
 export const SAAS_URL = process.env.NEXT_PUBLIC_SAAS_URL || "http://localhost:8000";
 export const COLLECTOR_URL = process.env.NEXT_PUBLIC_COLLECTOR_URL || "http://localhost:8001";
@@ -51,10 +59,18 @@ class DashboardDataStore {
   public useMocks = true;
   /** true once real data has been loaded from the SaaS; false = offline, showing mock data */
   public isLive = false;
+  public backend: BackendStatus = {
+    live: false, storage: null, collectorReachable: false, scenario: null, secondsLeft: 0, lastResult: null,
+  };
   private readNotifications = new Set<string>();
 
   /** Pull real data from the SaaS + collector into this store. Returns false (and keeps mocks) if unreachable. */
   async syncLive(tenantId: TenantId): Promise<boolean> {
+    this.backend = await fetchBackendStatus(tenantId);
+    if (!this.backend.live) {
+      this.isLive = false;
+      return false;
+    }
     try {
       const snap: LiveSnapshot = await fetchLiveSnapshot(tenantId);
       this.sources[tenantId] = snap.sources;
@@ -229,6 +245,18 @@ class DashboardDataStore {
     ];
 
     return rec;
+  }
+
+  /** Live: inject the scenario into the real pipeline. Offline: animate the sample data. */
+  async runScenario(scenario: ScenarioId, tenantId: TenantId): Promise<string> {
+    if (this.isLive) {
+      await triggerScenarioLive(tenantId, scenario);
+      return "live";
+    }
+    if (["normal", "secret", "cpu_spike", "correlation", "logins", "outage"].includes(scenario)) {
+      this.applyScenario(scenario as "normal" | "secret" | "cpu_spike" | "correlation" | "logins" | "outage", tenantId);
+    }
+    return "sample";
   }
 
   applyScenario(scenario: "normal" | "secret" | "cpu_spike" | "correlation" | "logins" | "outage", tenantId: TenantId) {

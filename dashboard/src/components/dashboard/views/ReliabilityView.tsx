@@ -8,6 +8,11 @@ interface ReliabilityViewProps {
 }
 
 export default function ReliabilityView({ metrics }: ReliabilityViewProps) {
+  const history = metrics.outage_buffer_history ?? [];
+  const currentDepth = history.length ? history[history.length - 1].depth : 0;
+  const peakDepth = history.reduce((m, p) => Math.max(m, p.depth), 0);
+  const maxDepth = Math.max(12, peakDepth);
+
   return (
     <div className="space-y-6 font-sans">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-neutral-200 gap-2">
@@ -36,7 +41,9 @@ export default function ReliabilityView({ metrics }: ReliabilityViewProps) {
             {metrics.latency_p95_s}s
           </div>
           <p className="text-[11px] text-neutral-500 mt-2 font-mono">
-            render_time &minus; event_time_utc
+            {metrics.replayed_after_outage
+              ? `live traffic · ${metrics.replayed_after_outage} replayed after outage (max ${metrics.max_replay_delay_s}s, ${metrics.seq_gaps === 0 ? "0 lost" : `${metrics.seq_gaps} missing`})`
+              : "received_at − event_time_utc"}
           </p>
         </div>
 
@@ -95,14 +102,14 @@ export default function ReliabilityView({ metrics }: ReliabilityViewProps) {
             </p>
           </div>
           <span className="text-[10px] font-mono border border-neutral-200 bg-neutral-100 px-2 py-0.5 rounded text-neutral-700">
-            BUFFER DRAINED (0 REMAINING)
+            {currentDepth > 0 ? `BUFFERING (${currentDepth} QUEUED)` : "BUFFER DRAINED (0 REMAINING)"}
           </span>
         </div>
 
         {/* Minimalist Monochrome Chart */}
         <div className="h-40 w-full flex items-end gap-3 pt-6 pb-2 px-2 border-b border-neutral-100">
           {metrics.outage_buffer_history.map((pt, i) => {
-            const heightPct = pt.depth === 0 ? 3 : (pt.depth / 12) * 100;
+            const heightPct = pt.depth === 0 ? 3 : Math.max(6, (pt.depth / maxDepth) * 100);
             return (
               <div key={i} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
                 <span className="text-[10px] font-mono text-neutral-500">
@@ -120,8 +127,14 @@ export default function ReliabilityView({ metrics }: ReliabilityViewProps) {
           })}
         </div>
         <div className="flex items-center justify-between text-[11px] font-mono text-neutral-500">
-          <span>09:10: SaaS link severed (outbox growth)</span>
-          <span>09:15: SaaS link re-established (drain complete &check;)</span>
+          <span>{history.length ? `${history[0].time}: window start` : "Waiting for collector samples…"}</span>
+          <span>
+            {peakDepth > 0
+              ? currentDepth > 0
+                ? `Outage in progress: ${currentDepth} payloads held locally`
+                : `Peak ${peakDepth} buffered → drained, 0 lost ✓`
+              : "No outage in this window ✓"}
+          </span>
         </div>
       </div>
     </div>

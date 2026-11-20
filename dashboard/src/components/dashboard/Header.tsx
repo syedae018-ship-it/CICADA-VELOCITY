@@ -14,14 +14,17 @@ import {
   User,
   Zap,
 } from "lucide-react";
-import { TenantId, NotificationItem, TimeRange } from "@/types";
+import { TenantId, NotificationItem, TimeRange, ScenarioId, SCENARIOS, BackendStatus } from "@/types";
 
 interface HeaderProps {
   tenantId: TenantId;
   onTenantChange: (tenant: TenantId) => void;
-  onScenarioTrigger: (
-    scenario: "normal" | "secret" | "cpu_spike" | "correlation" | "logins" | "outage"
-  ) => void;
+  onScenarioTrigger: (scenario: ScenarioId) => void;
+  backend: BackendStatus;
+  scenarioMessage: string | null;
+  userEmail: string | null;
+  tenantLocked: boolean;
+  onSignOut: () => void;
   onResetDemo: () => void;
   onOpenSearch: () => void;
   notifications: NotificationItem[];
@@ -36,6 +39,11 @@ export default function Header({
   tenantId,
   onTenantChange,
   onScenarioTrigger,
+  backend,
+  scenarioMessage,
+  userEmail,
+  tenantLocked,
+  onSignOut,
   onResetDemo,
   onOpenSearch,
   notifications,
@@ -123,16 +131,30 @@ export default function Header({
 
       {/* Right Controls */}
       <div className="flex items-center gap-2.5">
-        {/* Connection status */}
-        <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded bg-neutral-50 border border-neutral-200 text-[11px] font-mono text-neutral-600">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span>SaaS Ingest Live (4.2s)</span>
+        {/* Connection status: live backend vs sample data */}
+        <div
+          className={`hidden md:flex items-center gap-1.5 px-2 py-1 rounded border text-[10px] font-semibold uppercase tracking-wide ${
+            backend.live
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-amber-200 bg-amber-50 text-amber-800"
+          }`}
+          title={
+            backend.live
+              ? `SaaS connected · storage: ${backend.storage ?? "?"} · collector ${backend.collectorReachable ? "reachable" : "not reachable"}`
+              : "Backend not reachable: showing sample data"
+          }
+        >
+          <span className={`h-1.5 w-1.5 rounded-full ${backend.live ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
+          {backend.live ? `Live · ${backend.storage === "supabase" ? "Supabase" : backend.storage ?? "SaaS"}` : "Sample data"}
         </div>
+
 
         {/* Tenant selector */}
         <div className="flex items-center gap-1.5">
           <select
             value={tenantId}
+            disabled={tenantLocked}
+            title={tenantLocked ? "Signed in: your account can only see its own tenant (RLS)" : "Demo mode: switch tenant"}
             onChange={(e) => onTenantChange(e.target.value as TenantId)}
             className="bg-neutral-50 border border-neutral-200 text-neutral-900 text-xs font-semibold px-2 py-1 rounded focus:outline-none focus:border-neutral-400 cursor-pointer"
           >
@@ -206,35 +228,33 @@ export default function Header({
           )}
         </div>
 
+        {(scenarioMessage || backend.scenario) && (
+          <div className="hidden lg:block max-w-[260px] truncate text-[11px] text-neutral-700 bg-neutral-100 border border-neutral-200 rounded px-2 py-1">
+            {scenarioMessage ?? `Running: ${backend.scenario} · ${backend.secondsLeft}s left`}
+          </div>
+        )}
+
         {/* Demo Scenarios selector */}
         <div className="hidden sm:flex items-center gap-1.5">
           <select
             defaultValue=""
+            aria-label="Inject a live scenario"
             onChange={(e) => {
               if (e.target.value) {
-                onScenarioTrigger(
-                  e.target.value as
-                    | "normal"
-                    | "secret"
-                    | "cpu_spike"
-                    | "correlation"
-                    | "logins"
-                    | "outage"
-                );
+                onScenarioTrigger(e.target.value as ScenarioId);
                 e.target.value = "";
               }
             }}
             className="bg-neutral-50 border border-neutral-200 text-xs font-mono text-neutral-800 px-2 py-1 rounded focus:outline-none focus:border-neutral-400 cursor-pointer"
           >
             <option value="" disabled>
-              Scenario...
+              {backend.live ? "Inject scenario…" : "Scenario (sample)…"}
             </option>
-            <option value="normal">1. Normal (All OK)</option>
-            <option value="secret">2. Secret in Log (Redacted)</option>
-            <option value="cpu_spike">3. CPU Anomaly (Critical)</option>
-            <option value="correlation">4. Correlation & Rec</option>
-            <option value="logins">5. Failed Logins Burst</option>
-            <option value="outage">6. Outage & Buffer Drain</option>
+            {SCENARIOS.map((s, i) => (
+              <option key={s.id} value={s.id}>
+                {i + 1}. {s.label}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -254,7 +274,7 @@ export default function Header({
             className="flex items-center gap-1.5 p-1 rounded hover:bg-neutral-100 transition"
           >
             <div className="h-7 w-7 rounded-full bg-neutral-900 text-white flex items-center justify-center text-xs font-bold font-mono">
-              MO
+              {(userEmail ?? "Demo").slice(0, 2).toUpperCase()}
             </div>
             <ChevronDown className="w-3 h-3 text-neutral-500 hidden sm:inline" />
           </button>
@@ -262,8 +282,10 @@ export default function Header({
           {showUserMenu && (
             <div className="absolute right-0 mt-2 w-52 rounded-lg border border-neutral-200 bg-white shadow-xl z-50 p-2 text-xs">
               <div className="p-2 border-b border-neutral-100 mb-1">
-                <div className="font-bold text-neutral-900">Mujeeb · SecOps</div>
-                <div className="text-[10px] text-neutral-500 font-mono">Role: Enterprise Admin</div>
+                <div className="font-bold text-neutral-900 truncate">{userEmail ?? "Demo operator"}</div>
+                <div className="text-[10px] text-neutral-500 font-mono">
+                  {userEmail ? "Signed in with Supabase Auth" : "Demo mode (dev tokens)"}
+                </div>
               </div>
               <div className="p-2 text-neutral-600 space-y-1">
                 <div className="flex items-center justify-between text-[11px] font-mono">
@@ -274,6 +296,17 @@ export default function Header({
                   <span>RLS Security:</span>
                   <span className="text-emerald-700 font-bold">Enforced</span>
                 </div>
+              </div>
+              <div className="border-t border-neutral-100 mt-1 pt-1">
+                {userEmail ? (
+                  <button onClick={onSignOut} className="w-full text-left p-2 rounded hover:bg-neutral-50 text-neutral-700">
+                    Sign out
+                  </button>
+                ) : (
+                  <a href="/login" className="block p-2 rounded hover:bg-neutral-50 text-neutral-700">
+                    Sign in with tenant account
+                  </a>
+                )}
               </div>
             </div>
           )}

@@ -35,7 +35,9 @@ export default function EgressProofView({
           </p>
         </div>
         <div className="text-xs font-mono border border-neutral-200 bg-neutral-100 text-neutral-800 px-2.5 py-1 rounded">
-          ALL PAYLOADS MATCH SAAS &check;
+          {egressPayloads.every((p) => p.matches_saas)
+            ? "ALL PAYLOADS MATCH SAAS ✓"
+            : `${egressPayloads.filter((p) => p.matches_saas).length} DELIVERED · ${egressPayloads.filter((p) => !p.matches_saas).length} BUFFERED LOCALLY`}
         </div>
       </div>
 
@@ -100,7 +102,7 @@ export default function EgressProofView({
                   onClick={() => copyJson(selectedPayload.body)}
                   className="px-2.5 py-1 rounded border border-neutral-200 bg-neutral-50 text-xs font-mono text-neutral-700 hover:bg-neutral-100 transition"
                 >
-                  {copied ? "COPIED &check;" : "COPY JSON"}
+                  {copied ? "COPIED ✓" : "COPY JSON"}
                 </button>
               </div>
 
@@ -114,7 +116,7 @@ export default function EgressProofView({
               </div>
 
               <div className="mt-3 p-2.5 border border-neutral-200 bg-neutral-50 rounded text-xs font-mono text-neutral-600">
-                &check; Verified: No raw messages, passwords, or PII exist in exported wire payload.
+                ✓ Verified: No raw messages, passwords, or PII exist in exported wire payload.
               </div>
             </div>
           ) : (

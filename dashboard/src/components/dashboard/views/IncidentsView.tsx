@@ -168,7 +168,7 @@ export default function IncidentsView({
                     </div>
                     <div className="border border-neutral-200 bg-neutral-50 p-2.5 rounded">
                       <span className="text-[10px] text-neutral-500 block uppercase">Policy Check</span>
-                      <span className="text-neutral-900 font-bold">Allowed &check;</span>
+                      <span className="text-neutral-900 font-bold">Allowed ✓</span>
                     </div>
                   </div>
 

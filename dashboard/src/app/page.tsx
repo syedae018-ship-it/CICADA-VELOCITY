@@ -19,7 +19,15 @@ import HistoryView from "@/components/dashboard/views/HistoryView";
 import ReportsView from "@/components/dashboard/views/ReportsView";
 
 import { dataStore } from "@/lib/api";
-import { DashboardTab, TenantId, MonitoredSource, TimeRange } from "@/types";
+import { setAccessToken } from "@/lib/live";
+import { currentUser, signOut } from "@/lib/supabase";
+import { DashboardTab, TenantId, MonitoredSource, TimeRange, ScenarioId, SCENARIOS } from "@/types";
+
+const TABS: DashboardTab[] = [
+  "overview", "sources", "fleet", "incidents", "ai_insights", "egress",
+  "privacy", "reliability", "timeline", "history", "reports",
+];
+const TENANTS: TenantId[] = ["t_acme", "t_globex"];
 
 export default function DashboardPage() {
   const [currentTab, setCurrentTab] = useState<DashboardTab>("overview");
@@ -34,6 +42,48 @@ export default function DashboardPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>("15m");
 
   const triggerRefresh = () => setRefreshKey((prev) => prev + 1);
+
+  // Deep links: the URL always reflects the view and tenant, e.g. /?view=incidents&tenant=t_acme
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const view = q.get("view") as DashboardTab | null;
+    const tenant = q.get("tenant") as TenantId | null;
+    if (view && TABS.includes(view)) setCurrentTab(view);
+    if (tenant && TENANTS.includes(tenant)) setTenantId(tenant);
+  }, []);
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    q.set("view", currentTab);
+    q.set("tenant", tenantId);
+    window.history.replaceState(null, "", `${window.location.pathname}?${q.toString()}`);
+  }, [currentTab, tenantId]);
+
+  const [scenarioMessage, setScenarioMessage] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [tenantLocked, setTenantLocked] = useState(false);
+
+  // Supabase session: a signed-in user is pinned to their own tenant (RLS on the database,
+  // JWT tenant check on the API). Without a session the dashboard runs in demo mode.
+  useEffect(() => {
+    currentUser()
+      .then((u) => {
+        if (!u) return;
+        setAccessToken(u.accessToken);
+        setUserEmail(u.email);
+        if (u.tenantId) {
+          setTenantId(u.tenantId);
+          setTenantLocked(true);
+        }
+      })
+      .catch(() => undefined);
+  }, []);
+
+  const handleSignOut = async () => {
+    await signOut();
+    setAccessToken(null);
+    setUserEmail(null);
+    setTenantLocked(false);
+  };
 
   // Live data: poll the SaaS + collector every 3 s (falls back to mock data when they are not running)
   useEffect(() => {
@@ -65,20 +115,21 @@ export default function DashboardPage() {
   const timelineEvents = dataStore.getTimeline(tenantId);
 
   // Scenario trigger handler
-  const handleScenario = (
-    scenario: "normal" | "secret" | "cpu_spike" | "correlation" | "logins" | "outage"
-  ) => {
-    dataStore.applyScenario(scenario, tenantId);
-    if (scenario === "secret") {
-      setCurrentTab("privacy");
-    } else if (scenario === "correlation" || scenario === "cpu_spike") {
-      setCurrentTab("incidents");
-    } else if (scenario === "outage") {
-      setCurrentTab("fleet");
-    } else if (scenario === "normal") {
-      setCurrentTab("overview");
+  const handleScenario = async (scenario: ScenarioId) => {
+    const meta = SCENARIOS.find((s) => s.id === scenario);
+    try {
+      const mode = await dataStore.runScenario(scenario, tenantId);
+      setScenarioMessage(
+        mode === "live"
+          ? `Injected live: ${meta?.label ?? scenario}`
+          : `Sample data: ${meta?.label ?? scenario} (backend offline)`,
+      );
+    } catch (e) {
+      setScenarioMessage(`Could not inject ${meta?.label ?? scenario}: ${(e as Error).message}`);
     }
+    if (meta) setCurrentTab(meta.tab);
     triggerRefresh();
+    setTimeout(() => setScenarioMessage(null), 6000);
   };
 
   const handleApprove = (recId: string) => {
@@ -92,6 +143,10 @@ export default function DashboardPage() {
   };
 
   const handleReset = () => {
+    if (dataStore.isLive) {
+      handleScenario("normal");
+      return;
+    }
     dataStore.resetStore();
     triggerRefresh();
   };
@@ -128,6 +183,11 @@ export default function DashboardPage() {
             triggerRefresh();
           }}
           onScenarioTrigger={handleScenario}
+          backend={dataStore.backend}
+          scenarioMessage={scenarioMessage}
+          userEmail={userEmail}
+          tenantLocked={tenantLocked}
+          onSignOut={handleSignOut}
           onResetDemo={handleReset}
           onOpenSearch={() => setIsSearchModalOpen(true)}
           notifications={notifications}

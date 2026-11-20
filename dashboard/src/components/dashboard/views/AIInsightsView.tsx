@@ -80,7 +80,7 @@ export default function AIInsightsView({
             100% Passed
           </div>
           <p className="text-[11px] text-neutral-500 mt-1">
-            Automated policy check: Allowed &check;
+            Automated policy check: Allowed ✓
           </p>
         </div>
       </div>
@@ -159,7 +159,7 @@ export default function AIInsightsView({
                   <div className="p-3 border border-neutral-200 bg-neutral-50 rounded">
                     <span className="text-[10px] text-neutral-500 uppercase block mb-1">Policy Governance</span>
                     <span className="text-base font-bold text-neutral-900">
-                      Allowed &check;
+                      Allowed ✓
                     </span>
                   </div>
                 </div>
@@ -181,7 +181,7 @@ export default function AIInsightsView({
                 {/* Rollback Snapshot Plan */}
                 <div className="p-3 border border-neutral-200 bg-white rounded text-xs font-mono flex items-center justify-between text-neutral-600">
                   <span>Automated Rollback Plan: <strong className="text-neutral-900">{rec.rollback_plan}</strong></span>
-                  <span className="text-neutral-400">Snapshot Saved &check;</span>
+                  <span className="text-neutral-400">Snapshot Saved ✓</span>
                 </div>
 
                 {/* Actions */}

@@ -14,6 +14,7 @@ import {
   Loader2,
   Sparkles,
 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 type AuthMode = "signin" | "signup";
 
@@ -48,31 +49,30 @@ export default function LoginForm() {
       return;
     }
 
-    // Simulate authentication transition
     startTransition(async () => {
-      await new Promise((res) => setTimeout(res, 1200));
-      if (email === "error@test.com") {
-        setError("Invalid credentials. Please verify your email and password.");
-      } else {
-        setSuccessMsg(
-          mode === "signin"
-            ? "Welcome back! Redirecting to your dashboard..."
-            : "Account created successfully! Welcome aboard."
-        );
-        setTimeout(() => {
-          router.push("/");
-        }, 800);
+      if (mode === "signup") {
+        // Tenants are provisioned by an admin (user ↔ tenant membership), not by self sign-up.
+        setError("Accounts are provisioned by your tenant administrator. Please sign in instead.");
+        return;
       }
+      if (!supabase) {
+        setError("Supabase is not configured for this dashboard (NEXT_PUBLIC_SUPABASE_URL / ANON_KEY).");
+        return;
+      }
+      const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      if (authError) {
+        setError(authError.message || "Invalid credentials. Please verify your email and password.");
+        return;
+      }
+      setSuccessMsg("Welcome back! Redirecting to your tenant dashboard...");
+      setTimeout(() => router.push("/"), 600);
     });
   };
 
   const handleSocialLogin = (provider: "Google" | "GitHub") => {
     setError(null);
     setSuccessMsg(null);
-    startTransition(async () => {
-      await new Promise((res) => setTimeout(res, 1000));
-      setSuccessMsg(`Authenticating with ${provider}... Redirecting...`);
-    });
+    setError(`${provider} sign-in is not enabled for this demo. Use your tenant email and password.`);
   };
 
   return (

@@ -122,7 +122,7 @@ export default function PrivacySideBySideView({
               >
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="font-bold text-neutral-900">Stored by SaaS: {item.service}</span>
-                  <span className="text-neutral-500">0 Secrets &check;</span>
+                  <span className="text-neutral-500">0 Secrets ✓</span>
                 </div>
 
                 <div className="p-3 border border-neutral-200 bg-neutral-50 rounded text-[11px] text-neutral-800 leading-relaxed select-all">
@@ -145,7 +145,7 @@ export default function PrivacySideBySideView({
                 </div>
 
                 <div className="p-2 border border-neutral-200 bg-neutral-50 rounded text-[11px] text-neutral-600">
-                  &check; Verified: Raw payload text, credentials, and host IP discarded prior to egress.
+                  ✓ Verified: Raw payload text, credentials, and host IP discarded prior to egress.
                 </div>
               </div>
             ))}

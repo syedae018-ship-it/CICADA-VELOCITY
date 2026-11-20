@@ -1,14 +1,37 @@
 @import "tailwindcss";
 
+/* Typography system
+   - body / UI text: Helvetica
+   - headings, KPI figures: Poppins
+   - IDs, hashes, payloads, metrics: JetBrains Mono */
+@theme {
+  --font-sans: "Helvetica Neue", Helvetica, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+  --font-display: var(--font-poppins), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 @layer base {
   html, body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    font-family: "Helvetica Neue", Helvetica, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+    font-family: var(--font-sans);
     background-color: #ffffff;
     color: #171717;
   }
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+}
+
+/* Large figures (KPI cards, metric values) read best in Poppins even where the markup says font-mono */
+.font-mono.text-2xl,
+.font-mono.text-3xl,
+.font-mono.text-4xl {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.02em;
 }
 
 /* Light minimal scrollbar */
