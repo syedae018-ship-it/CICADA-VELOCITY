@@ -34,8 +34,9 @@ def status() -> dict:
         "tenant_id": config.TENANT_ID,
         "region": config.REGION,
         "version": config.VERSION,
-        "saas_reachable": None,   # TODO(Person B): from sender loop
-        "buffer_depth": 0,        # TODO(Person B): from outbox
-        "last_sent_utc": None,
+        "saas_reachable": transport.get_saas_reachable(),
+        "saas_link_enabled": transport.is_saas_link_enabled(),
+        "buffer_depth": transport.get_buffer_depth(),
+        "last_sent_utc": transport.get_last_sent_utc(),
         "uptime_s": int(time.time() - STARTED),
     }

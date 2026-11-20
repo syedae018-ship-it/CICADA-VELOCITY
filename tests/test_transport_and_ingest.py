@@ -10,8 +10,6 @@ Validates:
 """
 import hashlib
 import json
-import os
-import shutil
 import time
 from pathlib import Path
 
@@ -32,30 +30,6 @@ from transport.db import (
 from transport.signing import sign
 
 SAMPLE_DIR = Path("contracts/sample_payloads")
-
-
-@pytest.fixture(autouse=True)
-def clean_databases():
-    # Close any open connections before removing files
-    close_connections()
-    close_conn()
-    ingest_routes._duplicates_count.clear()
-
-    if os.path.exists("saas/data"):
-        shutil.rmtree("saas/data")
-    if os.path.exists("collector/data"):
-        shutil.rmtree("collector/data")
-
-    init_schema()
-    init_collector_db()
-    yield
-    close_connections()
-    close_conn()
-    if os.path.exists("saas/data"):
-        shutil.rmtree("saas/data")
-    if os.path.exists("collector/data"):
-        shutil.rmtree("collector/data")
-
 
 
 def test_submit_valid_and_invalid():

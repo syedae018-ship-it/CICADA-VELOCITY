@@ -107,7 +107,11 @@ async def _send_one_payload(client: httpx.AsyncClient, row: dict) -> bool:
         mark_outbox_failure(payload_id, attempts, next_retry, f"Connection error: {type(exc).__name__}")
         return False
     except Exception as exc:
-        logger.error("Unexpected error sending payload %s: %s", payload_id, exc)
+        # Unknown failure: back off like a network error instead of retrying in a tight loop
+        logger.exception("Unexpected error sending payload %s", payload_id)
+        delay = BACKOFF_STEPS[min(attempts - 1, len(BACKOFF_STEPS) - 1)]
+        next_retry = (datetime.now(timezone.utc) + timedelta(seconds=delay)).isoformat().replace("+00:00", "Z")
+        mark_outbox_failure(payload_id, attempts, next_retry, f"Error: {type(exc).__name__}")
         return False
 
 
@@ -141,6 +145,7 @@ async def sender_loop() -> None:
 
 async def heartbeat_loop() -> None:
     """Send periodic heartbeat to SaaS every 10 seconds."""
+    global _saas_reachable
     async with httpx.AsyncClient() as client:
         while True:
             try:
@@ -172,9 +177,12 @@ async def heartbeat_loop() -> None:
 
                 url = f"{config.SAAS_URL.rstrip('/')}/api/v1/heartbeat"
                 try:
-                    await client.post(url, content=body_bytes, headers=headers, timeout=5.0)
-                except Exception:
-                    pass
+                    resp = await client.post(url, content=body_bytes, headers=headers, timeout=5.0)
+                    _saas_reachable = resp.status_code < 500
+                    if resp.status_code >= 400:
+                        logger.warning("Heartbeat rejected: HTTP %s %s", resp.status_code, resp.text[:200])
+                except (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError):
+                    _saas_reachable = False
             except asyncio.CancelledError:
                 break
             except Exception as exc:

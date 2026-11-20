@@ -1,10 +1,20 @@
-"""Authentication and tenant isolation helpers for SaaS ingest and read APIs."""
-import time
+"""Authentication helpers. Owner: Person B. Person C reuses get_tenant() on their endpoints.
+
+  * Collectors → SaaS: HMAC-SHA256 (verify_collector_auth)
+  * Dashboard → SaaS:  Supabase Auth JWT → user id → tenant_members → tenant_id (get_tenant)
+                       `Bearer demo-<tenant_id>` is accepted ONLY when DEV_INSECURE=1 (local dev / tests).
+There is NO default tenant: a missing or invalid token is always 401. Tenant isolation depends on it.
+"""
+import logging
 from typing import Optional
 
+from fastapi import Header, HTTPException, status
+
 from saas import config
-from saas.db import db_for_tenant
+from saas.db import get_store, get_supabase_client
 from transport.signing import verify as verify_hmac
+
+logger = logging.getLogger(__name__)
 
 
 def verify_collector_auth(
@@ -13,63 +23,65 @@ def verify_collector_auth(
     timestamp: str,
     signature: str,
 ) -> tuple[bool, Optional[str], Optional[dict]]:
-    """Verify HMAC signature for a collector request.
-    
-    Returns (is_valid, error_reason, collector_info).
-    """
-    if not collector_id or collector_id not in config.COLLECTORS:
+    """Verify the HMAC signature of a collector request. Returns (is_valid, error_reason, collector_info)."""
+    collector_info = config.COLLECTORS.get(collector_id or "")
+    if not collector_info:
         return False, "Unknown or missing collector_id", None
-
-    collector_info = config.COLLECTORS[collector_id]
-    secret = collector_info.get("secret", "")
-
     if not timestamp or not signature:
         return False, "Missing X-Timestamp or X-Signature header", None
-
-    is_valid = verify_hmac(secret=secret, body=raw_body, timestamp=timestamp, signature=signature)
-    if not is_valid:
+    if not verify_hmac(secret=collector_info["secret"], body=raw_body, timestamp=timestamp, signature=signature):
         return False, "Invalid HMAC signature or timestamp outside 300s replay window", None
-
     return True, None, collector_info
 
 
-def get_tenant_from_auth(auth_header: Optional[str]) -> str:
-    """Extract tenant_id from Authorization header.
-    
-    Supports:
-      1. Supabase JWT (Bearer <token>)
-      2. Demo token: Bearer demo-<tenant_id> (e.g. demo-t_acme)
-      3. Fallback: t_acme (for dev convenience when no auth header is provided)
-    """
-    if not auth_header:
-        return "t_acme"
+def _unauthorized(reason: str) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=reason,
+                         headers={"WWW-Authenticate": "Bearer"})
 
-    parts = auth_header.split(" ")
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        return "t_acme"
 
-    token = parts[1]
-
-    # Handle demo token
-    if token.startswith("demo-"):
-        tenant_id = token[5:]
-        return tenant_id if tenant_id in config.TENANTS else "t_acme"
-
-    # Handle Supabase JWT if jwt secret is set
+def _user_id_from_jwt(token: str) -> Optional[str]:
+    # 1. Legacy HS256 projects: verify locally with the JWT secret (fast, no network).
     if config.SUPABASE_JWT_SECRET:
         try:
             import jwt
-            payload = jwt.decode(token, config.SUPABASE_JWT_SECRET, algorithms=["HS256"], audience="authenticated")
-            user_id = payload.get("sub")
-            if user_id:
-                # Look up tenant in tenant_members
-                for region in config.REGIONS:
-                    from saas.db import connect
-                    conn = connect(region)
-                    row = conn.execute("SELECT tenant_id FROM tenant_members WHERE user_id = ?", (user_id,)).fetchone()
-                    if row:
-                        return row["tenant_id"]
+            claims = jwt.decode(token, config.SUPABASE_JWT_SECRET, algorithms=["HS256"], audience="authenticated")
+            return claims.get("sub")
         except Exception:
             pass
+    # 2. Asymmetric-key projects (or no secret configured): ask Supabase Auth to validate the token.
+    client = get_supabase_client()
+    if client is not None:
+        try:
+            res = client.auth.get_user(token)
+            return res.user.id if res and res.user else None
+        except Exception as exc:
+            logger.info("Supabase token rejected: %s", type(exc).__name__)
+    return None
 
-    return "t_acme"
+
+def tenant_from_authorization(authorization: Optional[str]) -> str:
+    """Resolve the caller's tenant from an Authorization header or raise 401."""
+    if not authorization:
+        raise _unauthorized("Missing Authorization header")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise _unauthorized("Authorization must be 'Bearer <token>'")
+
+    if token.startswith("demo-"):
+        tenant_id = token[5:]
+        if config.DEV_INSECURE and tenant_id in config.TENANTS:
+            return tenant_id
+        raise _unauthorized("Demo tokens are disabled (DEV_INSECURE=0) or tenant unknown")
+
+    user_id = _user_id_from_jwt(token)
+    if not user_id:
+        raise _unauthorized("Invalid or expired token")
+    tenant_id = get_store().tenant_for_user(user_id)
+    if not tenant_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is not a member of any tenant")
+    return tenant_id
+
+
+def get_tenant(authorization: Optional[str] = Header(None)) -> str:
+    """FastAPI dependency: `tenant_id: str = Depends(get_tenant)`."""
+    return tenant_from_authorization(authorization)

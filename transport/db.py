@@ -8,15 +8,27 @@ Tables owned by Person B in collector/data/collector.db:
 import hashlib
 import json
 import os
+import functools
 import sqlite3
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
 _DB_PATH = Path("collector/data/collector.db")
 _conn: Optional[sqlite3.Connection] = None
+_lock = threading.RLock()   # one connection is shared by the sender loop, heartbeat and API threads
 
 
+def _locked(fn):
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        with _lock:
+            return fn(*args, **kwargs)
+    return wrapper
+
+
+@_locked
 def close_conn() -> None:
     global _conn
     if _conn is not None:
@@ -27,6 +39,7 @@ def close_conn() -> None:
         _conn = None
 
 
+@_locked
 def get_conn() -> sqlite3.Connection:
     global _conn
     if _conn is None:
@@ -37,6 +50,7 @@ def get_conn() -> sqlite3.Connection:
     return _conn
 
 
+@_locked
 def init_collector_db() -> None:
     conn = get_conn()
     conn.executescript("""
@@ -73,6 +87,7 @@ def init_collector_db() -> None:
     conn.commit()
 
 
+@_locked
 def get_next_seq() -> int:
     """Return a strictly monotonic sequence number, persisted across restarts."""
     conn = get_conn()
@@ -84,6 +99,7 @@ def get_next_seq() -> int:
         return next_seq
 
 
+@_locked
 def enqueue_payload(
     payload_id: str,
     seq: int,
@@ -95,19 +111,20 @@ def enqueue_payload(
     body_sha256 = hashlib.sha256(body.encode("utf-8")).hexdigest()
     with conn:
         conn.execute(
-            """INSERT OR REPLACE INTO outbox
+            """INSERT OR IGNORE INTO outbox
                (payload_id, seq, body, created_utc, attempts, next_retry_utc, status)
                VALUES (?, ?, ?, ?, 0, ?, ?)""",
             (payload_id, seq, body, now, now, status),
         )
         conn.execute(
-            """INSERT OR REPLACE INTO egress_log
+            """INSERT OR IGNORE INTO egress_log
                (payload_id, seq, body, sha256, first_attempt_utc, attempts, result)
                VALUES (?, ?, ?, ?, ?, 0, ?)""",
             (payload_id, seq, body, body_sha256, now, status if status != "pending" else None),
         )
 
 
+@_locked
 def get_pending_outbox(limit: int = 50) -> list[dict]:
     conn = get_conn()
     now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -121,6 +138,7 @@ def get_pending_outbox(limit: int = 50) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+@_locked
 def mark_outbox_sent(payload_id: str, attempts: int, result: str) -> None:
     conn = get_conn()
     now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -134,6 +152,7 @@ def mark_outbox_sent(payload_id: str, attempts: int, result: str) -> None:
         )
 
 
+@_locked
 def mark_outbox_failure(payload_id: str, attempts: int, next_retry_utc: str, result: str) -> None:
     conn = get_conn()
     with conn:
@@ -151,6 +170,7 @@ def mark_outbox_failure(payload_id: str, attempts: int, next_retry_utc: str, res
         )
 
 
+@_locked
 def mark_outbox_dead_letter(payload_id: str, attempts: int, error: str) -> None:
     conn = get_conn()
     with conn:
@@ -164,6 +184,7 @@ def mark_outbox_dead_letter(payload_id: str, attempts: int, error: str) -> None:
         )
 
 
+@_locked
 def get_buffer_stats() -> dict:
     conn = get_conn()
     depth_row = conn.execute("SELECT count(*) as depth FROM outbox WHERE status = 'pending'").fetchone()
@@ -189,6 +210,7 @@ def get_buffer_stats() -> dict:
     }
 
 
+@_locked
 def get_egress_logs(limit: int = 20) -> list[dict]:
     conn = get_conn()
     rows = conn.execute(
@@ -203,21 +225,24 @@ def get_egress_logs(limit: int = 20) -> list[dict]:
     results = []
     for r in rows:
         d = dict(r)
-        # Parse body as JSON object if possible for consumer convenience
-        try:
-            d["body"] = json.loads(d["body"])
-        except Exception:
-            pass
+        _with_parsed_body(d)
         results.append(d)
     return results
 
 
+@_locked
 def get_egress_by_id(payload_id: str) -> Optional[dict]:
     conn = get_conn()
     row = conn.execute("SELECT * FROM egress_log WHERE payload_id = ?", (payload_id,)).fetchone()
     if not row:
         return None
-    d = dict(row)
+    return _with_parsed_body(dict(row))
+
+
+def _with_parsed_body(d: dict) -> dict:
+    """`body_raw` = exact bytes that left the collector (sha256 is computed over these);
+    `body` = the same content parsed, for pretty display in the egress proof panel."""
+    d["body_raw"] = d["body"]
     try:
         d["body"] = json.loads(d["body"])
     except Exception:

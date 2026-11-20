@@ -1,11 +1,13 @@
-"""Owner: Person B. Ingest and Reliability API routes.
+"""Owner: Person B. Ingest and reliability API (contracts/api.md §A and §B).
 
-Endpoints:
-  * POST /api/v1/ingest
-  * POST /api/v1/heartbeat
-  * GET  /api/v1/collectors
-  * GET  /api/v1/metrics
-  * GET  /api/v1/reliability
+  * POST /api/v1/ingest       HMAC → schema → registry → dedupe → store (by event time) → AIOps hook
+  * POST /api/v1/heartbeat    HMAC → schema → registry → last_seen / online
+  * GET  /api/v1/collectors   tenant-scoped (dashboard may also read Supabase directly)
+  * GET  /api/v1/metrics      tenant-scoped, ordered by EVENT time
+  * GET  /api/v1/reliability  received, duplicates, seq gaps, p95 latency, alert latency
+
+All storage goes through saas.db.get_store() (Supabase when configured, SQLite otherwise).
+Blocking storage calls run in a worker thread so the event loop stays responsive.
 """
 import asyncio
 import hashlib
@@ -15,32 +17,114 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Header, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
+from fastapi.concurrency import run_in_threadpool
 from jsonschema import Draft202012Validator
 
-from saas import config
 from saas.aiops import on_ingest
-from saas.db import connect, db_for_tenant, init_schema, tenant_query
-from saas.ingest.auth import get_tenant_from_auth, verify_collector_auth
+from saas.db import DuplicatePayload, get_store, now_utc, parse_utc
+from saas.ingest.auth import get_tenant, verify_collector_auth
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["ingest"])
 
-# Load JSON schemas
 CONTRACTS_DIR = Path(__file__).resolve().parent.parent.parent / "contracts"
-PAYLOAD_SCHEMA = json.loads((CONTRACTS_DIR / "payload_schema.json").read_text())
-HEARTBEAT_SCHEMA = json.loads((CONTRACTS_DIR / "heartbeat_schema.json").read_text())
-payload_validator = Draft202012Validator(PAYLOAD_SCHEMA)
-heartbeat_validator = Draft202012Validator(HEARTBEAT_SCHEMA)
+payload_validator = Draft202012Validator(json.loads((CONTRACTS_DIR / "payload_schema.json").read_text()))
+heartbeat_validator = Draft202012Validator(json.loads((CONTRACTS_DIR / "heartbeat_schema.json").read_text()))
 
-# In-memory tracking for reliability metrics
-_duplicates_count: dict[str, int] = {}  # tenant_id -> count
+OFFLINE_AFTER_S = 60
+HTTP_422 = 422
+
+_duplicates_count: dict[str, int] = {}   # tenant_id -> duplicates rejected since SaaS start
 _bg_task: Optional[asyncio.Task] = None
 
 
-def _now_utc_str() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+def _reject(errors: list[str]) -> HTTPException:
+    return HTTPException(status_code=HTTP_422, detail={"status": "rejected", "errors": errors})
+
+
+def _authenticate(collector_id: Optional[str], raw_body: bytes, ts: Optional[str], sig: Optional[str]) -> dict:
+    ok, err, info = verify_collector_auth(collector_id or "", raw_body, ts or "", sig or "")
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=err)
+    return info
+
+
+def _parse(raw_body: bytes, validator: Draft202012Validator) -> dict:
+    try:
+        doc = json.loads(raw_body.decode("utf-8"))
+    except Exception as exc:
+        raise _reject([f"Malformed JSON: {exc}"])
+    errors = [f"{list(e.path)}: {e.message}" for e in validator.iter_errors(doc)]
+    if errors:
+        raise _reject(errors)
+    return doc
+
+
+def _mark_seen(tenant_id: str, collector_id: str, fields: dict) -> None:
+    """Update collector liveness; record an 'online' transition in health history + audit."""
+    store = get_store()
+    prev = store.get_collector(tenant_id, collector_id) or {}
+    now = fields["last_seen_utc"]
+    came_back = prev.get("status") == "offline"
+    update = {"status": "online", **fields}
+    if came_back:
+        update["state"] = "good"
+    store.update_collector(tenant_id, collector_id, update)
+    if came_back:
+        reason = "collector reconnected" if prev.get("last_seen_utc") else "collector first seen"
+        store.insert_health(tenant_id, {"entity_type": "collector", "entity_id": collector_id,
+                                        "prev_state": prev.get("state"), "state": "good",
+                                        "reason": reason, "at_utc": now})
+        store.insert_audit(tenant_id, {"actor": "system", "action": "collector_online", "target": collector_id,
+                                       "details": {"reason": reason}, "at_utc": now})
+
+
+def _store_payload(tenant_id: str, collector_id: str, payload: dict, body_sha256: str) -> bool:
+    """Persist one payload. Returns False if it was a duplicate. Rolls back the idempotency
+    record on partial failure so the collector's retry is processed instead of being treated as a duplicate."""
+    store = get_store()
+    received = now_utc()
+    payload_id = payload["payload_id"]
+    try:
+        store.record_payload({"payload_id": payload_id, "tenant_id": tenant_id, "collector_id": collector_id,
+                              "seq": payload["seq"], "sent_at_utc": payload["sent_at_utc"],
+                              "received_at_utc": received, "body_sha256": body_sha256})
+    except DuplicatePayload:
+        return False
+
+    try:
+        metrics = [
+            {"tenant_id": tenant_id, "collector_id": collector_id, "source_id": src["source_id"],
+             "service": src.get("service"), "source_type": src.get("source_type"), "metric": name,
+             "value": float(val), "event_time_utc": src["event_time_utc"],   # stored by EVENT time
+             "received_at_utc": received, "payload_id": payload_id}
+            for src in payload["sources"]
+            for name, val in src.get("metrics", {}).items()
+            if isinstance(val, (int, float))                                  # booleans become 1.0 / 0.0
+        ]
+        events = [
+            {"event_id": ev["event_id"], "tenant_id": tenant_id, "collector_id": collector_id,
+             "source_id": ev["source_id"], "category": ev["category"], "severity": ev["severity"],
+             "type": ev["type"], "count": ev["count"], "summary": ev["summary"],
+             "event_time_utc": ev["event_time_utc"], "received_at_utc": received, "payload_id": payload_id}
+            for ev in payload["events"]
+        ]
+        store.insert_metrics(tenant_id, metrics)
+        store.insert_events(tenant_id, events)
+        ch = payload["collector_health"]
+        _mark_seen(tenant_id, collector_id, {"last_seen_utc": received, "buffer_depth": ch["buffer_depth"],
+                                             "version": ch["version"], "cpu_pct": ch["cpu_pct"],
+                                             "mem_pct": ch["mem_pct"], "config_hash": ch["config_hash"]})
+    except Exception:
+        logger.exception("Storing payload %s failed; rolling back idempotency record", payload_id)
+        try:
+            store.delete_payload(tenant_id, payload_id)
+        except Exception:
+            logger.exception("Rollback of payload %s failed", payload_id)
+        raise
+    return True
 
 
 @router.post("/ingest", status_code=status.HTTP_202_ACCEPTED)
@@ -50,142 +134,33 @@ async def ingest_payload(
     x_timestamp: Optional[str] = Header(None, alias="X-Timestamp"),
     x_signature: Optional[str] = Header(None, alias="X-Signature"),
 ):
-    # 1. Read raw body bytes (needed for byte-exact HMAC check and hash computation)
-    raw_body = await request.body()
+    raw_body = await request.body()                                   # exact bytes for HMAC + hash
+    collector = _authenticate(x_collector_id, raw_body, x_timestamp, x_signature)
+    payload = _parse(raw_body, payload_validator)                     # allow-list enforced again in SaaS
 
-    # 2 & 3. Look up collector in registry and verify HMAC
-    is_valid, auth_err, collector_info = verify_collector_auth(
-        collector_id=x_collector_id or "",
-        raw_body=raw_body,
-        timestamp=x_timestamp or "",
-        signature=x_signature or "",
-    )
-    if not is_valid:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=auth_err)
+    tenant_id = collector["tenant_id"]                                # tenant from registry, never trusted from body
+    if payload["collector_id"] != x_collector_id or payload["tenant_id"] != tenant_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Collector or tenant mismatch with registry")
+    if payload["region"] != collector["region"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Collector sent to the wrong regional endpoint")
 
-    # 4. Parse JSON and validate against schema
     try:
-        payload = json.loads(raw_body.decode("utf-8"))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"status": "rejected", "errors": [f"Malformed JSON: {str(e)}"]},
-        )
+        accepted = await run_in_threadpool(_store_payload, tenant_id, x_collector_id,
+                                           payload, hashlib.sha256(raw_body).hexdigest())
+    except Exception:
+        # 503 → the collector keeps the payload in its outbox and retries with the same payload_id
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Storage unavailable, retry")
 
-    schema_errors = [e.message for e in payload_validator.iter_errors(payload)]
-    if schema_errors:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"status": "rejected", "errors": schema_errors},
-        )
-
-    # 5. Verify tenant_id and collector_id in body match registry
-    expected_tenant = collector_info["tenant_id"]
-    if payload.get("collector_id") != x_collector_id or payload.get("tenant_id") != expected_tenant:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Collector or tenant mismatch with registry",
-        )
-
-    tenant_id = expected_tenant
-    payload_id = payload["payload_id"]
-    seq = payload["seq"]
-    sent_at_utc = payload["sent_at_utc"]
-    now_utc = _now_utc_str()
-    body_sha256 = hashlib.sha256(raw_body).hexdigest()
-
-    conn = db_for_tenant(tenant_id)
-    cursor = conn.cursor()
-
-    # 6. Deduplication check (idempotency)
-    existing = cursor.execute(
-        "SELECT payload_id FROM received_payloads WHERE payload_id = ?", (payload_id,)
-    ).fetchone()
-    if existing:
+    if not accepted:
         _duplicates_count[tenant_id] = _duplicates_count.get(tenant_id, 0) + 1
-        return Response(
-            content=json.dumps({"status": "duplicate", "payload_id": payload_id}),
-            status_code=status.HTTP_200_OK,
-            media_type="application/json",
-        )
+        return Response(content=json.dumps({"status": "duplicate", "payload_id": payload["payload_id"]}),
+                        status_code=status.HTTP_200_OK, media_type="application/json")
 
-    # Insert into received_payloads
-    cursor.execute(
-        """INSERT INTO received_payloads
-           (payload_id, tenant_id, collector_id, seq, sent_at_utc, received_at_utc, body_sha256)
-           VALUES (?, ?, ?, ?, ?, ?, ?)""",
-        (payload_id, tenant_id, x_collector_id, seq, sent_at_utc, now_utc, body_sha256),
-    )
-
-    # 7. Insert metrics rows (one per metric value)
-    for source in payload.get("sources", []):
-        src_id = source["source_id"]
-        svc = source.get("service")
-        stype = source.get("source_type")
-        event_time = source["event_time_utc"]
-        for metric_name, val in source.get("metrics", {}).items():
-            if val is not None and isinstance(val, (int, float)):
-                cursor.execute(
-                    """INSERT INTO metrics
-                       (tenant_id, collector_id, source_id, service, source_type, metric, value, event_time_utc, received_at_utc, payload_id)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (tenant_id, x_collector_id, src_id, svc, stype, metric_name, float(val), event_time, now_utc, payload_id),
-                )
-
-    # Insert events rows
-    for evt in payload.get("events", []):
-        cursor.execute(
-            """INSERT OR IGNORE INTO events
-               (event_id, tenant_id, collector_id, source_id, category, severity, type, count, summary, event_time_utc, received_at_utc, payload_id)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                evt["event_id"],
-                tenant_id,
-                x_collector_id,
-                evt["source_id"],
-                evt["category"],
-                evt["severity"],
-                evt["type"],
-                evt["count"],
-                evt["summary"],
-                evt["event_time_utc"],
-                now_utc,
-                payload_id,
-            ),
-        )
-
-    # 8. Update collector status, buffer depth, health
-    c_health = payload.get("collector_health", {})
-    cursor.execute(
-        """UPDATE collectors
-           SET status = 'online',
-               last_seen_utc = ?,
-               buffer_depth = ?,
-               version = ?,
-               cpu_pct = ?,
-               mem_pct = ?,
-               config_hash = ?
-           WHERE collector_id = ?""",
-        (
-            now_utc,
-            c_health.get("buffer_depth", 0),
-            c_health.get("version"),
-            c_health.get("cpu_pct"),
-            c_health.get("mem_pct"),
-            c_health.get("config_hash"),
-            x_collector_id,
-        ),
-    )
-    conn.commit()
-
-    # 9. Call AIOps hook (guarded so AIOps exceptions never drop ingested data)
     try:
-        on_ingest(tenant_id, payload)
-    except Exception as exc:
-        logger.exception("AIOps hook on_ingest failed: %s", exc)
-
-    # 10. Return accepted
-    return {"status": "accepted", "payload_id": payload_id}
+        on_ingest(tenant_id, payload)                                 # AIOps bugs must never drop stored data
+    except Exception:
+        logger.exception("AIOps hook on_ingest failed")
+    return {"status": "accepted", "payload_id": payload["payload_id"]}
 
 
 @router.post("/heartbeat", status_code=status.HTTP_204_NO_CONTENT)
@@ -196,58 +171,23 @@ async def heartbeat(
     x_signature: Optional[str] = Header(None, alias="X-Signature"),
 ):
     raw_body = await request.body()
-    is_valid, auth_err, collector_info = verify_collector_auth(
-        collector_id=x_collector_id or "",
-        raw_body=raw_body,
-        timestamp=x_timestamp or "",
-        signature=x_signature or "",
-    )
-    if not is_valid:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=auth_err)
-
-    try:
-        hb = json.loads(raw_body.decode("utf-8"))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"status": "rejected", "errors": [str(e)]},
-        )
-
-    errors = [e.message for e in heartbeat_validator.iter_errors(hb)]
-    if errors:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"status": "rejected", "errors": errors},
-        )
-
-    if hb.get("collector_id") != x_collector_id or hb.get("tenant_id") != collector_info["tenant_id"]:
+    collector = _authenticate(x_collector_id, raw_body, x_timestamp, x_signature)
+    hb = _parse(raw_body, heartbeat_validator)
+    if hb["collector_id"] != x_collector_id or hb["tenant_id"] != collector["tenant_id"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Registry mismatch")
-
-    now_utc = _now_utc_str()
-    conn = db_for_tenant(collector_info["tenant_id"])
-    conn.execute(
-        """UPDATE collectors
-           SET status = 'online',
-               last_seen_utc = ?,
-               buffer_depth = ?,
-               version = ?,
-               config_hash = ?
-           WHERE collector_id = ?""",
-        (now_utc, hb.get("buffer_depth", 0), hb.get("version"), hb.get("config_hash"), x_collector_id),
-    )
-    conn.commit()
+    try:
+        await run_in_threadpool(_mark_seen, collector["tenant_id"], x_collector_id,
+                                {"last_seen_utc": now_utc(), "buffer_depth": hb["buffer_depth"],
+                                 "version": hb["version"], "config_hash": hb["config_hash"]})
+    except Exception:
+        logger.exception("Heartbeat storage failed")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Storage unavailable")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/collectors")
-def get_collectors(authorization: Optional[str] = Header(None)):
-    tenant_id = get_tenant_from_auth(authorization)
-    rows = tenant_query(
-        tenant_id,
-        "SELECT collector_id, region, version, status, state, last_seen_utc, buffer_depth, cpu_pct, mem_pct, config_hash FROM collectors WHERE tenant_id = ?",
-        (tenant_id,),
-    )
-    return rows
+def get_collectors(tenant_id: str = Depends(get_tenant)):
+    return get_store().list_collectors(tenant_id)
 
 
 @router.get("/metrics")
@@ -256,166 +196,83 @@ def get_metrics(
     metric: Optional[str] = None,
     from_time: Optional[str] = Query(None, alias="from"),
     to_time: Optional[str] = Query(None, alias="to"),
-    authorization: Optional[str] = Header(None),
+    tenant_id: str = Depends(get_tenant),
 ):
-    tenant_id = get_tenant_from_auth(authorization)
-    clauses = ["tenant_id = ?"]
-    params: list[object] = [tenant_id]
+    return get_store().query_metrics(tenant_id, source_id, metric, from_time, to_time)
 
-    if source_id:
-        clauses.append("source_id = ?")
-        params.append(source_id)
-    if metric:
-        clauses.append("metric = ?")
-        params.append(metric)
-    if from_time:
-        clauses.append("event_time_utc >= ?")
-        params.append(from_time)
-    if to_time:
-        clauses.append("event_time_utc <= ?")
-        params.append(to_time)
 
-    where_sql = " AND ".join(clauses)
-    sql = f"""SELECT event_time_utc, value, metric, source_id
-              FROM metrics
-              WHERE {where_sql}
-              ORDER BY event_time_utc ASC"""
-    return tenant_query(tenant_id, sql, tuple(params))
+def _seconds_between(later: str, earlier: str) -> Optional[float]:
+    try:
+        return max(0.0, (parse_utc(later) - parse_utc(earlier)).total_seconds())
+    except Exception:
+        return None
 
 
 @router.get("/reliability")
-def get_reliability(authorization: Optional[str] = Header(None)):
-    tenant_id = get_tenant_from_auth(authorization)
-    conn = db_for_tenant(tenant_id)
+def get_reliability(tenant_id: str = Depends(get_tenant)):
+    store = get_store()
 
-    # 1. Total received payloads count
-    row = conn.execute("SELECT count(*) as cnt FROM received_payloads WHERE tenant_id = ?", (tenant_id,)).fetchone()
-    received_count = row["cnt"] if row else 0
-
-    # 2. Duplicates rejected count
-    duplicates_rejected = _duplicates_count.get(tenant_id, 0)
-
-    # 3. Sequence gaps per collector
     seq_gaps: dict[str, list[int]] = {}
-    collectors = conn.execute("SELECT collector_id FROM collectors WHERE tenant_id = ?", (tenant_id,)).fetchall()
-    for c in collectors:
-        cid = c["collector_id"]
-        rows = conn.execute(
-            "SELECT seq FROM received_payloads WHERE tenant_id = ? AND collector_id = ? ORDER BY seq ASC",
-            (tenant_id, cid),
-        ).fetchall()
-        seqs = [r["seq"] for r in rows]
-        gaps = []
-        if seqs:
-            for i in range(len(seqs) - 1):
-                diff = seqs[i + 1] - seqs[i]
-                if diff > 1:
-                    gaps.extend(range(seqs[i] + 1, seqs[i + 1]))
-        seq_gaps[cid] = gaps
+    for c in store.list_collectors(tenant_id):
+        seqs = store.received_seqs(tenant_id, c["collector_id"])
+        seq_gaps[c["collector_id"]] = [m for a, b in zip(seqs, seqs[1:]) for m in range(a + 1, b)][:1000]
 
-    # 4. Latency p95 in seconds: (received_at_utc - event_time_utc)
-    metric_latencies = []
-    rows = conn.execute(
-        """SELECT received_at_utc, event_time_utc
-           FROM metrics
-           WHERE tenant_id = ?
-           ORDER BY id DESC LIMIT 500""",
-        (tenant_id,),
-    ).fetchall()
-    for r in rows:
-        try:
-            recv = datetime.fromisoformat(r["received_at_utc"].replace("Z", "+00:00"))
-            evt = datetime.fromisoformat(r["event_time_utc"].replace("Z", "+00:00"))
-            sec = max(0.0, (recv - evt).total_seconds())
-            metric_latencies.append(sec)
-        except Exception:
-            continue
+    latencies = sorted(x for r in store.recent_metric_times(tenant_id)
+                       if (x := _seconds_between(r["received_at_utc"], r["event_time_utc"])) is not None)
+    p95 = round(latencies[min(int(len(latencies) * 0.95), len(latencies) - 1)], 3) if latencies else None
 
-    if metric_latencies:
-        metric_latencies.sort()
-        p95_idx = int(len(metric_latencies) * 0.95)
-        p95_idx = min(p95_idx, len(metric_latencies) - 1)
-        latency_p95_s = round(metric_latencies[p95_idx], 3)
-    else:
-        latency_p95_s = 0.0
-
-    # 5. Alert latency: time between event_time_utc and created_at_utc for latest alert
-    alert_row = conn.execute(
-        """SELECT created_at_utc, event_time_utc
-           FROM alerts
-           WHERE tenant_id = ?
-           ORDER BY created_at_utc DESC LIMIT 1""",
-        (tenant_id,),
-    ).fetchone()
-    alert_latency_s_last = 0.0
-    if alert_row and alert_row["created_at_utc"] and alert_row["event_time_utc"]:
-        try:
-            created = datetime.fromisoformat(alert_row["created_at_utc"].replace("Z", "+00:00"))
-            event = datetime.fromisoformat(alert_row["event_time_utc"].replace("Z", "+00:00"))
-            alert_latency_s_last = round(max(0.0, (created - event).total_seconds()), 3)
-        except Exception:
-            pass
+    last_alert = store.last_alert_times(tenant_id)
+    alert_latency = _seconds_between(last_alert["created_at_utc"], last_alert["event_time_utc"]) if last_alert else None
 
     return {
-        "received_count": received_count,
-        "duplicates_rejected": duplicates_rejected,
+        "received_count": store.received_count(tenant_id),
+        "duplicates_rejected": _duplicates_count.get(tenant_id, 0),
         "seq_gaps": seq_gaps,
-        "latency_p95_s": latency_p95_s,
-        "alert_latency_s_last": alert_latency_s_last,
+        "latency_p95_s": p95,
+        "alert_latency_s_last": round(alert_latency, 3) if alert_latency is not None else None,
+        "sample_size": len(latencies),
     }
 
 
+def check_offline_collectors(now: Optional[datetime] = None) -> list[str]:
+    """Mark collectors with no heartbeat/payload for > 60 s as offline + Poor. Returns the ids marked."""
+    store = get_store()
+    now = now or datetime.now(timezone.utc)
+    now_iso = now.isoformat().replace("+00:00", "Z")
+    marked = []
+    for c in store.online_collectors():
+        if not c.get("last_seen_utc"):
+            continue
+        silent_s = (now - parse_utc(c["last_seen_utc"])).total_seconds()
+        if silent_s <= OFFLINE_AFTER_S:
+            continue
+        tid, cid = c["tenant_id"], c["collector_id"]
+        reason = f"no heartbeat for {int(silent_s)}s"
+        store.update_collector(tid, cid, {"status": "offline", "state": "poor"})
+        store.insert_health(tid, {"entity_type": "collector", "entity_id": cid, "prev_state": c.get("state"),
+                                  "state": "poor", "reason": reason, "at_utc": now_iso})
+        store.insert_audit(tid, {"actor": "system", "action": "collector_offline", "target": cid,
+                                 "details": {"reason": reason, "last_seen_utc": c["last_seen_utc"]}, "at_utc": now_iso})
+        marked.append(cid)
+    return marked
+
+
 async def _offline_detector_loop() -> None:
-    """Check for collectors that have not sent heartbeat/telemetry for > 60 seconds."""
     while True:
         try:
             await asyncio.sleep(5)
-            now = datetime.now(timezone.utc)
-            now_iso = now.isoformat().replace("+00:00", "Z")
-            for region in config.REGIONS:
-                conn = connect(region)
-                rows = conn.execute(
-                    "SELECT collector_id, tenant_id, last_seen_utc, status, state FROM collectors WHERE status = 'online'"
-                ).fetchall()
-                for r in rows:
-                    last_seen_str = r["last_seen_utc"]
-                    if not last_seen_str:
-                        continue
-                    try:
-                        last_seen = datetime.fromisoformat(last_seen_str.replace("Z", "+00:00"))
-                        diff_sec = (now - last_seen).total_seconds()
-                        if diff_sec > 60:
-                            cid = r["collector_id"]
-                            tid = r["tenant_id"]
-                            prev_state = r["state"]
-                            conn.execute(
-                                "UPDATE collectors SET status = 'offline', state = 'poor' WHERE collector_id = ?",
-                                (cid,),
-                            )
-                            conn.execute(
-                                """INSERT INTO health_history
-                                   (tenant_id, entity_type, entity_id, prev_state, state, reason, at_utc)
-                                   VALUES (?, 'collector', ?, ?, 'poor', 'no heartbeat for 60s', ?)""",
-                                (tid, cid, prev_state, now_iso),
-                            )
-                            conn.execute(
-                                """INSERT INTO audit_log
-                                   (tenant_id, actor, action, target, details, at_utc)
-                                   VALUES (?, 'system', 'collector_offline', ?, ?, ?)""",
-                                (tid, cid, json.dumps({"reason": "no heartbeat for 60s", "last_seen_utc": last_seen_str}), now_iso),
-                            )
-                            conn.commit()
-                    except Exception as e:
-                        logger.error("Error processing collector %s: %s", r["collector_id"], e)
+            await asyncio.to_thread(check_offline_collectors)
         except asyncio.CancelledError:
             break
-        except Exception as e:
-            logger.error("Error in offline detector loop: %s", e)
+        except Exception:
+            logger.exception("Offline detector iteration failed")
 
 
 async def startup() -> None:
-    """Initialize schemas, seed records, and start background offline detector."""
+    """Called by saas/app.py: initialise the storage backend and start the offline detector."""
     global _bg_task
-    init_schema()
+    store = get_store()
+    await asyncio.to_thread(store.init)
+    logger.info("SaaS storage backend: %s", store.name)
     if _bg_task is None or _bg_task.done():
         _bg_task = asyncio.create_task(_offline_detector_loop())
