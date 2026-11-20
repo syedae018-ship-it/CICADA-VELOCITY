@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from typing import Optional
 from .store import STORE
 
-router = APIRouter(prefix="/api/v1")
+router = APIRouter(prefix="/api/v1", tags=["aiops"])
 
 def get_tenant(authorization: Optional[str] = Header(None)) -> str:
     """
@@ -18,13 +18,12 @@ def get_tenant(authorization: Optional[str] = Header(None)) -> str:
         raise HTTPException(status_code=401, detail="Invalid Authorization header format")
 
     token = parts[1]
-    if token.startswith("demo-"):
-        return token.replace("demo-", "")
-    return "t_acme"
-
-@router.get("/health")
-def health_check():
-    return {"status": "ok", "service": "saas-aiops"}
+    # Demo tokens only for known tenants in dev; anything else is rejected (never a default tenant).
+    # On integration this is replaced by the shared Supabase-JWT check in saas/ingest/auth.py.
+    from saas import config
+    if token.startswith("demo-") and token[5:] in config.TENANTS and getattr(config, "DEV_INSECURE", True):
+        return token[5:]
+    raise HTTPException(status_code=401, detail="Invalid or unknown token")
 
 @router.get("/overview")
 def get_overview(tenant_id: str = Depends(get_tenant)):

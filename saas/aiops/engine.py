@@ -1,3 +1,5 @@
+import asyncio
+import logging
 import uuid
 from collections import OrderedDict
 from datetime import datetime, timezone
@@ -28,6 +30,9 @@ class IdempotencyCache:
         self._cache[payload_id] = datetime.now(timezone.utc).timestamp()
 
 PROCESSED_PAYLOADS = IdempotencyCache()
+logger = logging.getLogger(__name__)
+STALENESS_INTERVAL_S = 5
+_staleness_task = None
 
 def on_ingest(tenant_id: str, payload: Dict[str, Any]):
     """
@@ -182,3 +187,28 @@ def check_staleness_and_timeouts(tenant_id: str):
                     STORE.add_incident(inc)
                 for r in recs:
                     STORE.add_recommendation(r)
+
+
+def run_staleness_sweep() -> None:
+    """Apply staleness / offline rules to every tenant the engine has seen."""
+    tenants = set(STORE.sources) | set(STORE.collectors)
+    for tenant_id in tenants:
+        check_staleness_and_timeouts(tenant_id)
+
+
+async def _staleness_loop() -> None:
+    while True:
+        try:
+            await asyncio.sleep(STALENESS_INTERVAL_S)
+            run_staleness_sweep()
+        except asyncio.CancelledError:
+            break
+        except Exception:
+            logger.exception("AIOps staleness sweep failed")
+
+
+async def startup() -> None:
+    """Called once by saas/app.py: start the staleness / collector-offline timer."""
+    global _staleness_task
+    if _staleness_task is None or _staleness_task.done():
+        _staleness_task = asyncio.create_task(_staleness_loop())

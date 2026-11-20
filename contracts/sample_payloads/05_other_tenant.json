@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "payload_id": "0a1b2c3d-4e5f-4061-8273-8495a6b7c8d9",
+  "tenant_id": "t_globex",
+  "collector_id": "c_fra01",
+  "region": "eu-west-1",
+  "seq": 1,
+  "sent_at_utc": "2026-11-20T09:15:05Z",
+  "source_tz": "Europe/Berlin",
+  "window": { "start_utc": "2026-11-20T09:15:00Z", "end_utc": "2026-11-20T09:15:05Z" },
+  "sources": [
+    {
+      "source_id": "src_abcdef012345",
+      "source_type": "server",
+      "service": "web-frontend",
+      "event_time_utc": "2026-11-20T09:15:04Z",
+      "metrics": { "cpu_pct": 22.0, "mem_pct": 40.1, "latency_ms": 35.0, "service_up": true }
+    }
+  ],
+  "events": [],
+  "collector_health": { "version": "0.1.0", "cpu_pct": 2.0, "mem_pct": 8.0, "buffer_depth": 0, "config_hash": "ffee00112233", "uptime_s": 120 },
+  "redaction_stats": { "records_in": 10, "secrets_redacted": 0, "fields_dropped": 20 }
+}
