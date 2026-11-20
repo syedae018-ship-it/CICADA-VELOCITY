@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, Header, HTTPException
-from typing import Optional
+from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Optional
 from .store import STORE
+from .copilot import query_copilot
 
 router = APIRouter(prefix="/api/v1")
 
@@ -166,3 +168,35 @@ def get_health_history(entity_id: Optional[str] = None, tenant_id: str = Depends
 @router.get("/audit")
 def get_audit_log(tenant_id: str = Depends(get_tenant)):
     return STORE.audit_log.get(tenant_id, [])
+
+class CopilotAskRequest(BaseModel):
+    question: str = Field(..., max_length=500)
+    incident_id: Optional[str] = None
+    history: List[Dict[str, Any]] = Field(default_factory=list)
+
+class CopilotAskResponse(BaseModel):
+    answer: str
+    citations: List[str]
+    privacy_mode: str = "metadata_only"
+    tenant_id: str
+    engine: str
+    intent: str = "fleet_overview"
+    suggested_action: Optional[Dict[str, Any]] = None
+
+@router.post("/copilot/ask", response_model=CopilotAskResponse)
+def ask_copilot(req: CopilotAskRequest, tenant_id: str = Depends(get_tenant)):
+    """
+    Natural-Language Incident Copilot v2.1 ("Ask your infrastructure").
+    Answers questions using only allow-listed metadata for the caller's tenant.
+    Supports multi-turn history, intent classification, and suggested actions.
+    """
+    if not req.question or not req.question.strip():
+        raise HTTPException(status_code=400, detail="Question cannot be empty")
+
+    res = query_copilot(
+        tenant_id=tenant_id,
+        question=req.question.strip(),
+        incident_id=req.incident_id,
+        history=req.history
+    )
+    return res
