@@ -180,6 +180,22 @@
 ::-webkit-scrollbar-thumb { background: #d6d8d0; border-radius: 999px; }
 ::-webkit-scrollbar-thumb:hover { background: #b4b7ab; }
 
+/* Subtle, smooth page transitions without layout shifts */
+@keyframes viewFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.view-transition {
+  animation: viewFadeIn 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 /* Lucide icon stroke tightening */
 .icon-sharp { stroke-width: 1.75; }
 

@@ -104,10 +104,12 @@ export default function Sidebar({
                   : "text-ink-soft hover:text-ink hover:bg-canvas-deep/80"
               }`}
             >
-              {isActive && !isCollapsed && (
+              {!isCollapsed && (
                 <span
                   aria-hidden
-                  className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-brand-mint"
+                  className={`absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-brand-mint transition-opacity duration-150 ${
+                    isActive ? "opacity-100" : "opacity-0 pointer-events-none"
+                  }`}
                 />
               )}
               <div className="flex items-center gap-3">

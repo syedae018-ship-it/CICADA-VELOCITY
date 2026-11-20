@@ -205,74 +205,76 @@ export default function DashboardPage() {
           onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
         />
 
-        <main className="flex-1 w-full max-w-[1480px] mx-auto">
-          {currentTab === "overview" && (
-            <OverviewView
-              sources={sources}
-              collectors={collectors}
-              incidents={incidents}
-              recommendations={recommendations}
-              onSelectTab={setCurrentTab}
-              onSelectSource={setSelectedSourceForDetail}
-            />
-          )}
+        <main className="flex-1 w-full max-w-[1480px] mx-auto min-h-[calc(100vh-140px)]">
+          <div key={currentTab} className="view-transition">
+            {currentTab === "overview" && (
+              <OverviewView
+                sources={sources}
+                collectors={collectors}
+                incidents={incidents}
+                recommendations={recommendations}
+                onSelectTab={setCurrentTab}
+                onSelectSource={setSelectedSourceForDetail}
+              />
+            )}
 
-          {currentTab === "sources" && (
-            <SourcesView
-              sources={sources}
-              onSelectSource={setSelectedSourceForDetail}
-            />
-          )}
+            {currentTab === "sources" && (
+              <SourcesView
+                sources={sources}
+                onSelectSource={setSelectedSourceForDetail}
+              />
+            )}
 
-          {currentTab === "fleet" && <FleetView collectors={collectors} />}
+            {currentTab === "fleet" && <FleetView collectors={collectors} />}
 
-          {currentTab === "incidents" && (
-            <IncidentsView
-              tenantId={tenantId}
-              incidents={incidents}
-              alerts={alerts}
-              recommendations={recommendations}
-              auditLog={auditLog}
-              onApprove={handleApprove}
-              onRollback={handleRollback}
-            />
-          )}
+            {currentTab === "incidents" && (
+              <IncidentsView
+                tenantId={tenantId}
+                incidents={incidents}
+                alerts={alerts}
+                recommendations={recommendations}
+                auditLog={auditLog}
+                onApprove={handleApprove}
+                onRollback={handleRollback}
+              />
+            )}
 
-          {currentTab === "ai_insights" && (
-            <AIInsightsView
-              tenantId={tenantId}
-              recommendations={recommendations}
-              alerts={alerts}
-              incidents={incidents}
-              onApprove={handleApprove}
-              onRollback={handleRollback}
-              onSelectTab={setCurrentTab}
-            />
-          )}
+            {currentTab === "ai_insights" && (
+              <AIInsightsView
+                tenantId={tenantId}
+                recommendations={recommendations}
+                alerts={alerts}
+                incidents={incidents}
+                onApprove={handleApprove}
+                onRollback={handleRollback}
+                onSelectTab={setCurrentTab}
+              />
+            )}
 
-          {currentTab === "egress" && (
-            <EgressProofView tenantId={tenantId} egressPayloads={egress} />
-          )}
+            {currentTab === "egress" && (
+              <EgressProofView tenantId={tenantId} egressPayloads={egress} />
+            )}
 
-          {currentTab === "privacy" && (
-            <PrivacySideBySideView rawRecords={rawRecords} />
-          )}
+            {currentTab === "privacy" && (
+              <PrivacySideBySideView rawRecords={rawRecords} />
+            )}
 
-          {currentTab === "reliability" && (
-            <ReliabilityView metrics={reliability} />
-          )}
+            {currentTab === "reliability" && (
+              <ReliabilityView metrics={reliability} />
+            )}
 
-          {currentTab === "timeline" && (
-            <TimelineView tenantId={tenantId} events={timelineEvents} />
-          )}
+            {currentTab === "timeline" && (
+              <TimelineView tenantId={tenantId} events={timelineEvents} />
+            )}
 
-          {currentTab === "history" && (
-            <HistoryView history={healthHistory} />
-          )}
+            {currentTab === "history" && (
+              <HistoryView history={healthHistory} />
+            )}
 
-          {currentTab === "reports" && (
-            <ReportsView tenantId={tenantId} />
-          )}
+            {currentTab === "reports" && (
+              <ReportsView tenantId={tenantId} />
+            )}
+          </div>
         </main>
       </div>
 
