@@ -391,7 +391,7 @@ export default function OverviewView({
             <div className="text-[22px] font-bold text-ink leading-tight tracking-tight">
               {nextIncident ? nextIncident.title : "No open incidents"}
             </div>
-            <div className="mt-3 text-[12px] text-ink-muted flex items-center gap-2">
+            <div className="mt-3 text-[12px] text-ink-muted flex items-center gap-2" suppressHydrationWarning>
               <CalendarDays className="w-[14px] h-[14px] icon-sharp" />
               {nextIncidentTime ? `Started ${nextIncidentTime} UTC` : "Normal operations"}
             </div>
@@ -425,7 +425,7 @@ export default function OverviewView({
                     <div className="text-[13px] font-semibold text-ink truncate group-hover:text-brand-800">
                       {s.service}
                     </div>
-                    <div className="text-[11px] text-ink-muted">
+                    <div className="text-[11px] text-ink-muted" suppressHydrationWarning>
                       Due{" "}
                       {new Date(s.last_seen_utc).toLocaleTimeString([], {
                         hour: "2-digit",
