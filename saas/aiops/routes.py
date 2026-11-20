@@ -238,8 +238,9 @@ def get_security_layers(tenant_id: str = Depends(get_tenant)):
 
 @router.post("/chat")
 def chat(body: dict, tenant_id: str = Depends(get_tenant)):
-    """Natural-language query over AIOps state. Keyword-based intent router."""
+    """Natural-language query over AIOps state. Powered by Supabase + Gemini API."""
     from .chat import process_chat_message
     message = (body or {}).get("message", "") if isinstance(body, dict) else ""
     context = (body or {}).get("context", "") if isinstance(body, dict) else ""
-    return process_chat_message(message, tenant_id, context)
+    gemini_key = (body or {}).get("geminiApiKey") or (body or {}).get("gemini_api_key") or ""
+    return process_chat_message(message, tenant_id, context, gemini_key=gemini_key)

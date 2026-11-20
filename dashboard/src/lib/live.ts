@@ -452,17 +452,49 @@ export async function rollbackLive(recId: string, tenantId: TenantId) {
   return postJson(`${SAAS_URL}/api/v1/recommendations/${encodeURIComponent(recId)}/rollback`, authHeader(tenantId));
 }
 
-/** Natural-language query against the AIOps engine. */
-export async function sendChatMessage(tenantId: TenantId, message: string, context: string = ""): Promise<Json> {
+/** Natural-language query against the AIOps engine (connected to Supabase + Gemini API). */
+export async function sendChatMessage(
+  tenantId: TenantId,
+  message: string,
+  context: string = "",
+  geminiApiKey?: string
+): Promise<Json> {
+  // 1. Try Next.js server route /api/chat first (direct Supabase + Gemini connection)
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 12000);
+    const storedGeminiKey =
+      geminiApiKey ||
+      (typeof window !== "undefined"
+        ? window.localStorage.getItem("velocity_cicada_gemini_key") || undefined
+        : undefined);
+
+    const r = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      signal: ctrl.signal,
+      body: JSON.stringify({ tenantId, message, context, geminiApiKey: storedGeminiKey }),
+    });
+    clearTimeout(t);
+    if (r.ok) {
+      const data = await r.json();
+      return data;
+    }
+  } catch {
+    // If local /api/chat is unavailable, proceed to backend fallback
+  }
+
+  // 2. Fallback to SaaS FastAPI backend
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 4000);
+  const t = setTimeout(() => ctrl.abort(), 6000);
   try {
     const r = await fetch(`${SAAS_URL}/api/v1/chat`, {
       method: "POST",
       headers: { ...authHeader(tenantId), "Content-Type": "application/json" },
       cache: "no-store",
       signal: ctrl.signal,
-      body: JSON.stringify({ message, context }),
+      body: JSON.stringify({ message, context, geminiApiKey }),
     });
     const body = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(body?.detail ?? `HTTP ${r.status}`);

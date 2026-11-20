@@ -1,13 +1,68 @@
-"""AIOps NLP co-pilot — keyword-based intent router over the AIOps store.
+"""AIOps NLP co-pilot — powered by live Supabase telemetry and Google Gemini API.
 
-No external LLM. The user asks in natural language ("show me open alerts", "cpu status",
-"any recommendations?"), we route by keyword into the existing AIOps data model
-and return a short reply plus a list of structured cards the dashboard renders.
+The user asks in natural language ("show me open alerts", "cpu status", "why is the DB slow?").
+If Gemini API key is configured, Gemini generates expert, natural-language SRE explanations
+grounded in the live Supabase tables. In all cases, live data from Supabase and structured cards
+are returned to the dashboard.
 """
 from __future__ import annotations
-from typing import Any, Dict, List
+import os
+import json
+import urllib.request
+from typing import Any, Dict, List, Optional
 
 from .store import STORE
+
+
+def _get_sb():
+    try:
+        from saas.db import get_supabase_client
+        return get_supabase_client()
+    except Exception:
+        return None
+
+
+def _call_gemini_api(api_key: str, message: str, tenant_id: str, alerts: list, incidents: list, collectors: list, recs: list) -> Optional[str]:
+    models = ["gemini-2.0-flash", "gemini-1.5-flash"]
+    context_str = json.dumps({
+        "tenant_id": tenant_id,
+        "open_alerts": alerts[:4],
+        "incidents": incidents[:3],
+        "collectors": collectors[:3],
+        "recommendations": recs[:3]
+    }, default=str)
+    
+    system_instruction = (
+        "You are Velocity Cicada's AIOps Co-Pilot, an expert AI SRE and cybersecurity observability specialist. "
+        f"You have live access to Supabase telemetry for tenant '{tenant_id}'. "
+        "Answer the user query accurately, technically, and concisely based strictly on this live context. "
+        "Explain root causes, specific metrics, and remediation paths where relevant."
+    )
+    prompt = f"LIVE SUPABASE TELEMETRY CONTEXT:\n{context_str}\n\nUSER QUERY:\n{message}"
+    
+    for model in models:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+            body = {
+                "system_instruction": {"parts": [{"text": system_instruction}]},
+                "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+                "generationConfig": {"temperature": 0.3, "maxOutputTokens": 800}
+            }
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(body).encode("utf-8"),
+                headers={"Content-Type": "application/json"}
+            )
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                res_data = json.loads(resp.read().decode("utf-8"))
+                candidates = res_data.get("candidates", [])
+                if candidates:
+                    text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text")
+                    if text:
+                        return text.strip()
+        except Exception:
+            continue
+    return None
 
 
 def _kw(message: str, *keywords: str) -> bool:
@@ -20,6 +75,17 @@ def _severity_label(sev: str) -> str:
 
 
 def _alerts(tenant_id: str, only_open: bool = True) -> List[Dict[str, Any]]:
+    sb = _get_sb()
+    if sb:
+        try:
+            q = sb.table("alerts").select("*").eq("tenant_id", tenant_id)
+            if only_open:
+                q = q.eq("status", "open")
+            res = q.order("created_at_utc", desc=True).limit(20).execute()
+            if res and res.data:
+                return res.data
+        except Exception:
+            pass
     alerts = STORE.alerts.get(tenant_id, []) or []
     if only_open:
         return [a for a in alerts if a.get("status", "open") == "open"]
@@ -27,6 +93,17 @@ def _alerts(tenant_id: str, only_open: bool = True) -> List[Dict[str, Any]]:
 
 
 def _incidents(tenant_id: str, only_open: bool = True) -> List[Dict[str, Any]]:
+    sb = _get_sb()
+    if sb:
+        try:
+            q = sb.table("incidents").select("*").eq("tenant_id", tenant_id)
+            if only_open:
+                q = q.eq("status", "open")
+            res = q.order("updated_utc", desc=True).limit(20).execute()
+            if res and res.data:
+                return res.data
+        except Exception:
+            pass
     incidents = STORE.incidents.get(tenant_id, []) or []
     if only_open:
         return [i for i in incidents if i.get("status") == "open"]
@@ -34,6 +111,17 @@ def _incidents(tenant_id: str, only_open: bool = True) -> List[Dict[str, Any]]:
 
 
 def _recs(tenant_id: str, only_pending: bool = True) -> List[Dict[str, Any]]:
+    sb = _get_sb()
+    if sb:
+        try:
+            q = sb.table("recommendations").select("*").eq("tenant_id", tenant_id)
+            if only_pending:
+                q = q.eq("status", "proposed")
+            res = q.order("updated_utc", desc=True).limit(20).execute()
+            if res and res.data:
+                return res.data
+        except Exception:
+            pass
     recs = STORE.recommendations.get(tenant_id, []) or []
     if only_pending:
         return [r for r in recs if r.get("status") == "proposed"]
@@ -45,10 +133,26 @@ def _sources(tenant_id: str) -> List[Dict[str, Any]]:
 
 
 def _collectors(tenant_id: str) -> List[Dict[str, Any]]:
+    sb = _get_sb()
+    if sb:
+        try:
+            res = sb.table("collectors").select("*").eq("tenant_id", tenant_id).limit(20).execute()
+            if res and res.data:
+                return res.data
+        except Exception:
+            pass
     return list((STORE.collectors.get(tenant_id, {}) or {}).values())
 
 
 def _audit(tenant_id: str) -> List[Dict[str, Any]]:
+    sb = _get_sb()
+    if sb:
+        try:
+            res = sb.table("audit_log").select("*").eq("tenant_id", tenant_id).order("at_utc", desc=True).limit(20).execute()
+            if res and res.data:
+                return res.data
+        except Exception:
+            pass
     return list(STORE.audit_log.get(tenant_id, []) or [])
 
 
@@ -299,13 +403,58 @@ def _handle_help(_: str) -> Dict[str, Any]:
     }
 
 
-def process_chat_message(message: str, tenant_id: str, context: str = "") -> Dict[str, Any]:
-    """Route a natural-language message by keyword intent and return reply + cards."""
+def process_chat_message(message: str, tenant_id: str, context: str = "", gemini_key: str = "") -> Dict[str, Any]:
+    """Route a natural-language message with Google Gemini API & live Supabase context."""
     if not message or not isinstance(message, str):
         return _handle_help(message)
     msg = message.lower().strip()
 
-    # intent order: more specific first
+    # 1. If Gemini API key is provided or present in environment, invoke Gemini over Supabase context
+    active_key = gemini_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    if active_key:
+        al = _alerts(tenant_id)
+        inc = _incidents(tenant_id)
+        col = _collectors(tenant_id)
+        rc = _recs(tenant_id)
+        gemini_reply = _call_gemini_api(active_key, message, tenant_id, al, inc, col, rc)
+        if gemini_reply:
+            cards = []
+            if _kw(msg, "alert", "warn", "firing") or al:
+                for a in al[:3]:
+                    expl = a.get("explanation", {})
+                    why = expl.get("why", a.get("kind", "")) if isinstance(expl, dict) else str(expl)
+                    cards.append({
+                        "kind": "alert",
+                        "title": f"{a.get('metric', 'Signal')} on {a.get('service', 'unknown')}",
+                        "subtitle": a.get("source_id", ""),
+                        "severity": _severity_label(a.get("severity", "info")),
+                        "details": [why],
+                    })
+            if _kw(msg, "incident", "outage") or inc:
+                for i in inc[:2]:
+                    cards.append({
+                        "kind": "incident",
+                        "title": i.get("title", "Incident"),
+                        "subtitle": f"{i.get('alert_count', 0)} signals · status: {i.get('status', 'open')}",
+                        "severity": _severity_label(i.get("severity", "medium")),
+                        "details": [str(i.get("likely_cause", ""))[:90]],
+                    })
+            if _kw(msg, "recommend", "suggest", "fix") or rc:
+                for r in rc[:2]:
+                    cards.append({
+                        "kind": "recommendation",
+                        "title": r.get("action", "Recommendation"),
+                        "subtitle": f"Risk: {r.get('risk', 'low')}",
+                        "severity": "medium" if r.get("risk") == "high" else "low",
+                    })
+            return {
+                "reply": gemini_reply,
+                "cards": cards[:6],
+                "model": "gemini-2.0-flash",
+                "source": "gemini+supabase"
+            }
+
+    # 2. Deterministic Supabase-backed intent routing
     if _kw(msg, "help", "what can", "how do", "how can", "commands"):
         return _handle_help(msg)
     if _kw(msg, "secret", "leak", "redact", "privacy", "pii"):
@@ -334,8 +483,8 @@ def process_chat_message(message: str, tenant_id: str, context: str = "") -> Dic
     # fallback
     return {
         "reply": (
-            "I didn't catch that. Try words like alerts, incidents, CPU, memory, baselines, "
-            "recommendations, collectors, audit, history, privacy — or pick a quick-action below."
+            "I didn't catch that. Try asking about open alerts, incidents, CPU load, recommendations, "
+            "collectors, or security posture — or connect a Gemini API key for advanced generative reasoning."
         ),
         "cards": [],
     }
