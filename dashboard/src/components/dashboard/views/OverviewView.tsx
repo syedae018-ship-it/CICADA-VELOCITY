@@ -113,12 +113,31 @@ export default function OverviewView({
     },
   ];
 
-  // Aggregate time-series for chart
-  const timeBuckets = ["09:00", "09:03", "09:06", "09:09", "09:12", "09:15"];
-  const avgCpuData = [28.4, 29.8, 30.5, 33.2, 48.5, 52.8];
-  const avgMemData = [45.1, 45.4, 45.9, 47.1, 52.0, 56.4];
-  const avgLatencyData = [16.2, 16.5, 17.1, 18.0, 38.4, 62.1];
-  const avgNetworkData = [190, 205, 218, 235, 275, 298];
+  // Aggregate time-series for chart: 6 buckets averaged across all sources' live history
+  // (falls back to the sample series when no live history is available yet)
+  const BUCKETS = 6;
+  const livePoints = sources.flatMap((s) => s.history ?? []);
+  const bucketize = (pick: (p: (typeof livePoints)[number]) => number | undefined) => {
+    const vals = livePoints.map(pick);
+    const size = Math.ceil(livePoints.length / BUCKETS);
+    return Array.from({ length: BUCKETS }, (_, i) => {
+      const chunk = vals.slice(i * size, (i + 1) * size).filter((v): v is number => typeof v === "number" && v > 0);
+      return chunk.length ? Math.round((chunk.reduce((x, y) => x + y, 0) / chunk.length) * 10) / 10 : 0;
+    });
+  };
+  const hasLive = livePoints.length >= BUCKETS;
+  const sortedTimes = [...livePoints].sort((x, y) => x.time.localeCompare(y.time));
+  if (hasLive) livePoints.sort((x, y) => x.time.localeCompare(y.time));
+  const timeBuckets = hasLive
+    ? Array.from({ length: BUCKETS }, (_, i) => {
+        const size = Math.ceil(sortedTimes.length / BUCKETS);
+        return (sortedTimes[Math.min((i + 1) * size, sortedTimes.length) - 1]?.time ?? "").slice(0, 5);
+      })
+    : ["09:00", "09:03", "09:06", "09:09", "09:12", "09:15"];
+  const avgCpuData = hasLive ? bucketize((p) => p.cpu) : [28.4, 29.8, 30.5, 33.2, 48.5, 52.8];
+  const avgMemData = hasLive ? bucketize((p) => p.memory) : [45.1, 45.4, 45.9, 47.1, 52.0, 56.4];
+  const avgLatencyData = hasLive ? bucketize((p) => p.latency) : [16.2, 16.5, 17.1, 18.0, 38.4, 62.1];
+  const avgNetworkData = hasLive ? bucketize((p) => p.network_mbps) : [190, 205, 218, 235, 275, 298];
 
   const getChartValues = () => {
     switch (activeChartMetric) {
@@ -262,8 +281,8 @@ export default function OverviewView({
           </div>
 
           <div className="flex items-center justify-between text-[11px] font-mono text-neutral-500 pt-1">
-            <span>09:00 UTC (Nominal)</span>
-            <span>09:15 UTC (Anomaly spike registered)</span>
+            <span>{hasLive ? `${timeBuckets[0]} (window start)` : "09:00 UTC (Nominal)"}</span>
+            <span>{hasLive ? `${timeBuckets[BUCKETS - 1]} (latest)` : "09:15 UTC (Anomaly spike registered)"}</span>
           </div>
         </div>
       </div>

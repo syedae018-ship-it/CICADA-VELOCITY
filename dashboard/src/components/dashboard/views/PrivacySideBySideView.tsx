@@ -64,7 +64,7 @@ export default function PrivacySideBySideView({
                 {/* Raw Message Box */}
                 <div className="p-3 border border-neutral-200 bg-neutral-50 rounded text-[11px] text-neutral-800 leading-relaxed break-all select-all">
                   {item.message ? (
-                    item.has_secret ? (
+                    item.has_secret && item.message.includes("password=hunter2") ? (
                       <span>
                         {item.message.split("password=hunter2")[0]}
                         <span className="bg-rose-600 text-white font-bold px-1 py-0.2 rounded">

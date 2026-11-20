@@ -28,6 +28,7 @@ import {
   mockNotifications,
   mockTimelineEvents,
 } from "./mock";
+import { approveLive, fetchLiveSnapshot, rollbackLive, type LiveSnapshot } from "./live";
 
 export const SAAS_URL = process.env.NEXT_PUBLIC_SAAS_URL || "http://localhost:8000";
 export const COLLECTOR_URL = process.env.NEXT_PUBLIC_COLLECTOR_URL || "http://localhost:8001";
@@ -48,6 +49,34 @@ class DashboardDataStore {
 
   public timeRange: TimeRange = "15m";
   public useMocks = true;
+  /** true once real data has been loaded from the SaaS; false = offline, showing mock data */
+  public isLive = false;
+  private readNotifications = new Set<string>();
+
+  /** Pull real data from the SaaS + collector into this store. Returns false (and keeps mocks) if unreachable. */
+  async syncLive(tenantId: TenantId): Promise<boolean> {
+    try {
+      const snap: LiveSnapshot = await fetchLiveSnapshot(tenantId);
+      this.sources[tenantId] = snap.sources;
+      this.collectors[tenantId] = snap.collectors;
+      this.alerts[tenantId] = snap.alerts;
+      this.incidents[tenantId] = snap.incidents;
+      this.recommendations[tenantId] = snap.recommendations;
+      if (snap.egress) this.egress[tenantId] = snap.egress;
+      if (snap.raw) this.raw = snap.raw;
+      this.reliability[tenantId] = snap.reliability;
+      this.healthHistory[tenantId] = snap.healthHistory;
+      this.audit[tenantId] = snap.audit;
+      this.notifications[tenantId] = snap.notifications.map((n) => ({ ...n, read: this.readNotifications.has(n.id) }));
+      this.timeline[tenantId] = snap.timeline;
+      this.isLive = true;
+      this.useMocks = false;
+      return true;
+    } catch {
+      this.isLive = false;
+      return false;
+    }
+  }
 
   getSources(tenantId: TenantId): MonitoredSource[] {
     return this.sources[tenantId] || [];
@@ -101,11 +130,15 @@ class DashboardDataStore {
     const list = this.notifications[tenantId] || [];
     const item = list.find((n) => n.id === id);
     if (item) item.read = true;
+    this.readNotifications.add(id);
   }
 
   markAllNotificationsRead(tenantId: TenantId) {
     const list = this.notifications[tenantId] || [];
-    list.forEach((n) => (n.read = true));
+    list.forEach((n) => {
+      n.read = true;
+      this.readNotifications.add(n.id);
+    });
   }
 
   getTimeline(tenantId: TenantId): ActivityTimelineEvent[] {
@@ -113,6 +146,13 @@ class DashboardDataStore {
   }
 
   approveRecommendation(recId: string, tenantId: TenantId): Recommendation | null {
+    if (this.isLive) {
+      // Real approval: SaaS runs the policy check and writes the audit entry; the next sync shows the result.
+      approveLive(recId, tenantId).catch((e) => console.error("approve failed", e));
+      const rec = (this.recommendations[tenantId] || []).find((r) => r.rec_id === recId) ?? null;
+      if (rec) rec.status = "executed_simulated";
+      return rec;
+    }
     const list = this.recommendations[tenantId];
     const rec = list.find((r) => r.rec_id === recId);
     if (!rec) return null;
@@ -153,6 +193,12 @@ class DashboardDataStore {
   }
 
   rollbackRecommendation(recId: string, tenantId: TenantId): Recommendation | null {
+    if (this.isLive) {
+      rollbackLive(recId, tenantId).catch((e) => console.error("rollback failed", e));
+      const rec = (this.recommendations[tenantId] || []).find((r) => r.rec_id === recId) ?? null;
+      if (rec) rec.status = "rolled_back";
+      return rec;
+    }
     const list = this.recommendations[tenantId];
     const rec = list.find((r) => r.rec_id === recId);
     if (!rec) return null;

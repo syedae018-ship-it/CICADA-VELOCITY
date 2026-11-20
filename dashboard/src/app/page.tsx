@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import Header from "@/components/dashboard/Header";
 import GlobalSearchModal from "@/components/dashboard/GlobalSearchModal";
@@ -34,6 +34,21 @@ export default function DashboardPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>("15m");
 
   const triggerRefresh = () => setRefreshKey((prev) => prev + 1);
+
+  // Live data: poll the SaaS + collector every 3 s (falls back to mock data when they are not running)
+  useEffect(() => {
+    let cancelled = false;
+    const sync = async () => {
+      await dataStore.syncLive(tenantId);
+      if (!cancelled) setRefreshKey((prev) => prev + 1);
+    };
+    sync();
+    const timer = setInterval(sync, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [tenantId]);
 
   // Fetch current state from data store
   const sources = dataStore.getSources(tenantId);
