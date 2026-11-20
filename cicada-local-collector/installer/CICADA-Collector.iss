@@ -10,7 +10,7 @@
 ; ==============================================================================
 
 #define MyAppName "CICADA Local Collector"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "3.2.0"
 #define MyAppPublisher "CICADA Observability"
 #define MyAppExeName "CICADA-Collector.exe"
 
@@ -22,7 +22,7 @@ AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=..\dist\installer
-OutputBaseFilename=CICADA-Local-Collector-Setup
+OutputBaseFilename=CICADA-Local-Collector-Setup-v3.2
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern

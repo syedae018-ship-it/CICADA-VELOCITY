@@ -107,7 +107,7 @@ export default function LandingPage() {
                 Open live dashboard <ArrowRight className="w-4 h-4 icon-sharp" />
               </Link>
               <a
-                href="/downloads/CICADA-Local-Collector-Setup.exe"
+                href="/downloads/CICADA-Local-Collector-Setup-v3.2.exe"
                 download
                 className="btn-pill h-12 px-6 inline-flex items-center gap-2"
               >
@@ -248,7 +248,7 @@ export default function LandingPage() {
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <a
-                  href="/downloads/CICADA-Local-Collector-Setup.exe"
+                  href="/downloads/CICADA-Local-Collector-Setup-v3.2.exe"
                   download
                   className="inline-flex items-center gap-2 h-12 px-6 rounded-full font-semibold bg-brand-mint text-brand-900 hover:brightness-95 transition shadow-cardLg"
                 >
@@ -264,7 +264,7 @@ export default function LandingPage() {
                 </a>
               </div>
               <ol className="mt-7 space-y-2.5 text-[13px] text-white/85">
-                <InstallStep n={1}>Download <code className="font-mono">CICADA-Local-Collector-Setup.exe</code></InstallStep>
+                <InstallStep n={1}>Download <code className="font-mono">CICADA-Local-Collector-Setup-v3.2.exe</code></InstallStep>
                 <InstallStep n={2}>Run the installer (no admin required — installs per-user)</InstallStep>
                 <InstallStep n={3}>Open the app and paste your Supabase URL + device token</InstallStep>
                 <InstallStep n={4}>Watch telemetry stream into the dashboard</InstallStep>
