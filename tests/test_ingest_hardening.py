@@ -55,14 +55,18 @@ def test_partial_failure_rolls_back_so_retry_is_not_a_duplicate(monkeypatch):
     client = TestClient(saas_app)
     raw, h = _signed("01_normal.json")
     store = get_store()
-    real = store.insert_metrics
+    real = store.insert_events
 
     def boom(*a, **k):
         raise RuntimeError("db hiccup")
 
-    monkeypatch.setattr(store, "insert_metrics", boom)
+    monkeypatch.setattr(store, "insert_events", boom)        # metrics already written when this fails
     assert client.post("/api/v1/ingest", content=raw, headers=h).status_code == 503
-    monkeypatch.setattr(store, "insert_metrics", real)
+    pid = json.loads(raw)["payload_id"]
+    db = connect("ap-south-1")
+    assert db.execute("SELECT count(*) AS n FROM metrics WHERE payload_id = ?", (pid,)).fetchone()["n"] == 0
+    assert db.execute("SELECT count(*) AS n FROM received_payloads WHERE payload_id = ?", (pid,)).fetchone()["n"] == 0
+    monkeypatch.setattr(store, "insert_events", real)
     resp = client.post("/api/v1/ingest", content=raw, headers=h)
     assert resp.status_code == 202 and resp.json()["status"] == "accepted"
 
@@ -187,3 +191,21 @@ def test_supabase_store_ingest_dedupe_and_tenant_filters():
             get_store().record_payload(dict(fake.db["received_payloads"][0]))
     finally:
         saas_db.set_store(None)
+
+
+def test_transient_storage_error_is_retried_inside_the_request(monkeypatch):
+    client = TestClient(saas_app)
+    raw, h = _signed("01_normal.json")
+    store = get_store()
+    real, calls = store.insert_metrics, {"n": 0}
+
+    def flaky(*a, **k):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise ConnectionResetError("Connection reset by peer")
+        return real(*a, **k)
+
+    monkeypatch.setattr(store, "insert_metrics", flaky)
+    assert client.post("/api/v1/ingest", content=raw, headers=h).status_code == 202
+    pid = json.loads(raw)["payload_id"]
+    assert connect("ap-south-1").execute("SELECT count(*) AS n FROM metrics WHERE payload_id = ?", (pid,)).fetchone()["n"] == 9

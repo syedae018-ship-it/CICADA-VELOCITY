@@ -20,6 +20,7 @@ from saas import config
 _connections: dict[str, sqlite3.Connection] = {}
 _lock = threading.RLock()          # sqlite3 connections are shared between the event loop and the threadpool
 _supabase_client = None
+_thread_clients = threading.local()   # one Supabase client per thread: its HTTP/2 connection is not thread-safe
 _store: Optional["BaseStore"] = None
 
 
@@ -182,11 +183,17 @@ CREATE TABLE IF NOT EXISTS audit_log (
 # ───────────────────────────── SQLite plumbing (also used by the fallback store) ─────────────────────────────
 
 def get_supabase_client():
+    """The calling thread's Supabase client (service role), or None when Supabase is not configured."""
     global _supabase_client
-    if _supabase_client is None and config.SUPABASE_URL and config.SUPABASE_SERVICE_ROLE_KEY:
+    if not (config.SUPABASE_URL and config.SUPABASE_SERVICE_ROLE_KEY):
+        return None
+    client = getattr(_thread_clients, "client", None)
+    if client is None:
         from supabase import create_client
-        _supabase_client = create_client(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY)
-    return _supabase_client
+        client = create_client(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY)
+        _thread_clients.client = client
+        _supabase_client = _supabase_client or client
+    return client
 
 
 def connect(region: str) -> sqlite3.Connection:
@@ -349,7 +356,12 @@ class SqliteStore(BaseStore):
             raise
 
     def delete_payload(self, tenant_id, payload_id):
-        self._exec(tenant_id, "DELETE FROM received_payloads WHERE tenant_id = ? AND payload_id = ?", (tenant_id, payload_id))
+        """Undo a partially stored payload: its metrics, events and idempotency record."""
+        with _lock:
+            conn = db_for_tenant(tenant_id)
+            with conn:
+                for table in ("metrics", "events", "received_payloads"):
+                    conn.execute(f"DELETE FROM {table} WHERE tenant_id = ? AND payload_id = ?", (tenant_id, payload_id))
 
     def insert_metrics(self, tenant_id, rows):
         self._many(tenant_id, """INSERT INTO metrics (tenant_id, collector_id, source_id, service, source_type, metric, value,
@@ -452,11 +464,12 @@ class SupabaseStore(BaseStore):
     """Writes with the service role (bypasses RLS), so every call filters by tenant_id explicitly."""
     name = "supabase"
 
-    def __init__(self, client) -> None:
-        self.c = client
+    def __init__(self, client=None) -> None:
+        self._fixed = client          # tests inject a fake client; production uses one client per thread
 
     def t(self, table: str):
-        return self.c.table(table)
+        client = self._fixed or get_supabase_client()
+        return client.table(table)
 
     def init(self) -> None:
         # Schema is created once by contracts/supabase/001_init.sql. Fail fast if it is missing.
@@ -472,7 +485,9 @@ class SupabaseStore(BaseStore):
             raise
 
     def delete_payload(self, tenant_id, payload_id):
-        self.t("received_payloads").delete().eq("tenant_id", tenant_id).eq("payload_id", payload_id).execute()
+        """Undo a partially stored payload: its metrics, events and idempotency record."""
+        for table in ("metrics", "events", "received_payloads"):
+            self.t(table).delete().eq("tenant_id", tenant_id).eq("payload_id", payload_id).execute()
 
     def insert_metrics(self, tenant_id, rows):
         if rows:
@@ -546,7 +561,7 @@ def get_store() -> BaseStore:
     global _store
     if _store is None:
         client = get_supabase_client()
-        _store = SupabaseStore(client) if client is not None else SqliteStore()
+        _store = SupabaseStore() if client is not None else SqliteStore()
     return _store
 
 

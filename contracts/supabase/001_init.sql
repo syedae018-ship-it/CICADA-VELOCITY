@@ -1,5 +1,5 @@
 -- Velocity Cicada: Supabase (Postgres) schema for Tier 2 SaaS. METADATA ONLY.
--- Run once in Supabase Dashboard → SQL Editor (owner: Person B).
+-- Run in Supabase Dashboard → SQL Editor (owner: Person B). Safe to re-run.
 -- Raw logs / collector data NEVER go here. The collector keeps its own local SQLite.
 --
 -- Access model
@@ -178,7 +178,23 @@ create policy own_membership on tenant_members for select to authenticated using
 
 -- ───────────── Realtime (live dashboard, replaces custom SSE) ─────────────
 -- RLS also applies to Realtime, so each user only receives their tenant's changes.
-alter publication supabase_realtime add table alerts, incidents, recommendations, health_history, collectors, metrics;
+do $$
+declare t text;
+begin
+  foreach t in array array['alerts','incidents','recommendations','health_history','collectors','metrics'] loop
+    if not exists (select 1 from pg_publication_tables
+                   where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$;
+
+-- ───────────── API access (needed when "auto-expose new tables" is off) ─────────────
+grant usage on schema public to anon, authenticated, service_role;
+grant all on all tables in schema public to service_role;
+grant all on all sequences in schema public to service_role;
+grant select on all tables in schema public to authenticated;
+grant execute on function my_tenants() to authenticated;
 
 -- ───────────── Seed demo tenants & collectors ─────────────
 insert into tenants (tenant_id, name, home_region) values
@@ -193,3 +209,6 @@ on conflict do nothing;
 
 -- After creating demo users in Authentication → Users, link them:
 -- insert into tenant_members (user_id, tenant_id) values ('<acme-user-uuid>', 't_acme'), ('<globex-user-uuid>', 't_globex');
+
+-- Make the Data API see the new tables immediately
+notify pgrst, 'reload schema';

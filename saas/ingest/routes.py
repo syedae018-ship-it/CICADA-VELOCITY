@@ -144,12 +144,17 @@ async def ingest_payload(
     if payload["region"] != collector["region"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Collector sent to the wrong regional endpoint")
 
-    try:
-        accepted = await run_in_threadpool(_store_payload, tenant_id, x_collector_id,
-                                           payload, hashlib.sha256(raw_body).hexdigest())
-    except Exception:
-        # 503 → the collector keeps the payload in its outbox and retries with the same payload_id
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Storage unavailable, retry")
+    body_sha256 = hashlib.sha256(raw_body).hexdigest()
+    accepted = None
+    for attempt in (1, 2):   # pooled connections can be reset by the storage server; the failed attempt is fully rolled back
+        try:
+            accepted = await run_in_threadpool(_store_payload, tenant_id, x_collector_id, payload, body_sha256)
+            break
+        except Exception:
+            if attempt == 2:
+                # 503 → the collector keeps the payload in its outbox and retries with the same payload_id
+                raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Storage unavailable, retry")
+            logger.warning("Storing payload %s failed (attempt 1), retrying once", payload["payload_id"])
 
     if not accepted:
         _duplicates_count[tenant_id] = _duplicates_count.get(tenant_id, 0) + 1

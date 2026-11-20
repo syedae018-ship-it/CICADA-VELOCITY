@@ -21,6 +21,7 @@ SAMPLES = Path("contracts/sample_payloads")
 @pytest.fixture(autouse=True)
 def fresh_engine(monkeypatch):
     monkeypatch.setattr(aiops_store, "PERSIST_ENABLED", True)
+    monkeypatch.setattr(aiops_store, "PERSIST_ASYNC", False)      # write synchronously so assertions see rows
     for attr in ("alerts", "incidents", "recommendations", "health_history", "audit_log", "sources", "services", "collectors"):
         getattr(STORE, attr).clear()
     engine.PROCESSED_PAYLOADS._cache.clear()

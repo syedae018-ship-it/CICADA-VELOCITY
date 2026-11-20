@@ -1,4 +1,7 @@
+import copy
 import logging
+import queue
+import threading
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from .health import aggregate_service_health
@@ -10,10 +13,42 @@ logger = logging.getLogger(__name__)
 PERSIST_ENABLED = False
 
 
+# Writes go through one ordered background thread so slow network storage never delays ingest
+# (alerts / incidents are still written in creation order, so incident links stay valid).
+PERSIST_ASYNC = True
+_queue: "queue.Queue[tuple]" = queue.Queue()
+_worker: Optional[threading.Thread] = None
+
+
+def _writer() -> None:
+    while True:
+        kind, tenant_id, row = _queue.get()
+        try:
+            _write(kind, tenant_id, row)
+        finally:
+            _queue.task_done()
+
+
+def flush(timeout: float = 10.0) -> None:
+    """Wait until queued writes are stored (tests / shutdown)."""
+    _queue.join()
+
+
 def _persist(kind: str, tenant_id: str, row: Dict[str, Any]) -> None:
     """Best effort: a storage outage must never break detection. The in-memory state stays authoritative."""
+    global _worker
     if not PERSIST_ENABLED:
         return
+    if not PERSIST_ASYNC:
+        _write(kind, tenant_id, row)
+        return
+    if _worker is None or not _worker.is_alive():
+        _worker = threading.Thread(target=_writer, name="aiops-persist", daemon=True)
+        _worker.start()
+    _queue.put((kind, tenant_id, copy.deepcopy(row)))   # snapshot: the engine keeps mutating its objects
+
+
+def _write(kind: str, tenant_id: str, row: Dict[str, Any]) -> None:
     try:
         from saas.db import get_store
         store = get_store()
