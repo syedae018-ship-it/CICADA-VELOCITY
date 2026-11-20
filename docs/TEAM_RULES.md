@@ -1,5 +1,7 @@
 # Team Rules: Git Workflow & Working Agreement
 
+> Detailed merge procedure and conflict fixes: [`MERGE_GUIDE.md`](MERGE_GUIDE.md)
+
 ## Branches
 | Branch | Purpose |
 |---|---|
@@ -40,10 +42,10 @@ git push origin feature/<your-name>
 ## Ownership: edit only your folders
 | Module | Folders | Owner |
 |---|---|---|
-| M1 Collector & Privacy | `collector/` | _fill in_ |
-| M2 Transport, Reliability & Ingest | `transport/`, `saas/ingest/` | _fill in_ |
-| M3 AIOps Engine | `saas/aiops/` | _fill in_ |
-| M4 Dashboard, Demo & Docs | `dashboard/`, `demo/`, `docs/` | _fill in_ |
+| Person A: Collector & Privacy | `collector/` | _fill in_ |
+| Person B: Transport, Reliability & Ingest | `transport/`, `saas/ingest/`, `saas/db.py`, `saas/config.py` | _fill in_ |
+| Person C: AIOps Engine | `saas/aiops/` | _fill in_ |
+| Person D: Dashboard, Demo & Docs | `dashboard/`, `demo/`, `docs/` | _fill in_ |
 | Shared | `contracts/`, `saas/app.py`, `scripts/`, root files | **All**, by agreement only |
 
 Need something changed in someone else's folder? Ask them, or open an issue. Don't edit it yourself.

@@ -7,16 +7,17 @@ local, and sends only **allow-listed metadata** to a **multi-tenant SaaS** that 
 correlates incidents and gives **explainable recommendations**.
 
 ## Start here (every member)
+0. Read [`docs/PROJECT.md`](docs/PROJECT.md): the whole project on one page, then [`docs/MERGE_GUIDE.md`](docs/MERGE_GUIDE.md)
 1. Read [`docs/TEAM_RULES.md`](docs/TEAM_RULES.md): branches, ownership, merging
 2. Read [`contracts/README.md`](contracts/README.md): the shared agreements you build against
-3. Read your module spec:
+3. Read your personal build guide (phases + checklists):
 
 | Module | Spec | Folders | Owner |
 |---|---|---|---|
-| M1 Collector & Privacy | [`collector/README.md`](collector/README.md) | `collector/` | _fill in_ |
-| M2 Transport, Reliability & Ingest | [`transport/README.md`](transport/README.md) | `transport/`, `saas/ingest/`, `saas/db.py` | _fill in_ |
-| M3 AIOps Engine | [`saas/aiops/README.md`](saas/aiops/README.md) | `saas/aiops/` | _fill in_ |
-| M4 Dashboard, Demo & Docs | [`dashboard/README.md`](dashboard/README.md) | `dashboard/`, `demo/`, `docs/` | _fill in_ |
+| **Person A** Collector & Privacy | [`PERSON_A`](docs/members/PERSON_A_collector.md) | `collector/` | _fill in_ |
+| **Person B** Transport, Reliability & Ingest | [`PERSON_B`](docs/members/PERSON_B_transport_ingest.md) | `transport/`, `saas/ingest/`, `saas/db.py`, `saas/config.py` | _fill in_ |
+| **Person C** AIOps Engine | [`PERSON_C`](docs/members/PERSON_C_aiops.md) | `saas/aiops/` | _fill in_ |
+| **Person D** Dashboard, Demo & Docs | [`PERSON_D`](docs/members/PERSON_D_dashboard_demo.md) | `dashboard/`, `demo/`, `docs/` | _fill in_ |
 
 Also: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (diagram, trust boundary, failure handling) ·
 [`docs/PLAN.md`](docs/PLAN.md) (priorities, timeline, the 8 live scenarios)

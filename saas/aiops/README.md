@@ -1,5 +1,7 @@
 # M3: AIOps Engine (`saas/aiops/`)
 
+> Full phased build guide: [`docs/members/PERSON_C_aiops.md`](../../docs/members/PERSON_C_aiops.md)
+
 **Owner:** _fill in_ · **Branch:** `feature/<name>` · **Tier 2**
 
 ## Mission

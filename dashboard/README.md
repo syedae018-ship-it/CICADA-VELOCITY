@@ -1,5 +1,7 @@
 # M4: Dashboard, Demo & Docs (`dashboard/` + `demo/` + `docs/`)
 
+> Full phased build guide: [`docs/members/PERSON_D_dashboard_demo.md`](../docs/members/PERSON_D_dashboard_demo.md)
+
 **Owner:** _fill in_ · **Branch:** `feature/<name>` · Next.js · **Port 3000**
 
 ## Mission

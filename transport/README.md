@@ -1,5 +1,7 @@
 # M2: Transport, Reliability & Ingest (`transport/` + `saas/ingest/` + `saas/db.py`)
 
+> Full phased build guide: [`docs/members/PERSON_B_transport_ingest.md`](../docs/members/PERSON_B_transport_ingest.md)
+
 **Owner:** _fill in_ · **Branch:** `feature/<name>` · Spans **both tiers** (the trust boundary itself)
 
 ## Mission

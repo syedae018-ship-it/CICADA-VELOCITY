@@ -1,6 +1,4 @@
-"""Ingest API. Owner: M2. Routes: POST /ingest, POST /heartbeat, GET /collectors, /metrics, /reliability."""
-from fastapi import APIRouter
+"""Ingest API. Owner: Person B (docs/members/PERSON_B_transport_ingest.md)."""
+from saas.ingest.routes import router, startup
 
-router = APIRouter(prefix="/api/v1", tags=["ingest"])
-
-# TODO(M2): implement endpoints per contracts/api.md section A
+__all__ = ["router", "startup"]

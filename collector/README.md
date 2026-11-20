@@ -1,5 +1,7 @@
 # M1: Collector & Privacy (`collector/`)
 
+> Full phased build guide: [`docs/members/PERSON_A_collector.md`](../docs/members/PERSON_A_collector.md)
+
 **Owner:** _fill in_ · **Branch:** `feature/<name>` · **Tier 1** (customer side) · **Port 8001**
 
 ## Mission

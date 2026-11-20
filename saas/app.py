@@ -2,16 +2,26 @@
 
 Run from repo root:  uvicorn saas.app:app --port 8000 --reload
 """
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from saas import config
+from saas import aiops, ingest
 from saas.aiops import router as aiops_router
 from saas.ingest import router as ingest_router
 
-app = FastAPI(title="Velocity Cicada SaaS (Tier 2)")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    await ingest.startup()   # Person B: init region DBs, seed tenants, offline-detector task
+    await aiops.startup()    # Person C: staleness timer, SSE broker
+    yield
+
+
+app = FastAPI(title="Velocity Cicada SaaS (Tier 2)", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[config.DASHBOARD_ORIGIN],
