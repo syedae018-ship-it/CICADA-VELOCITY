@@ -20,6 +20,8 @@ import {
   ChevronRight,
   X,
   Shield,
+  MessageSquare,
+  Lock,
 } from "lucide-react";
 import { DashboardTab, TenantId } from "@/types";
 
@@ -66,10 +68,12 @@ export default function Sidebar({
       badgeKind: "count",
     },
     { id: "ai_insights", label: "AI Insights", icon: Sparkles },
+    { id: "chatbot", label: "AIOps Chat", icon: MessageSquare },
     { id: "egress", label: "Egress Proof", icon: ShieldCheck },
   ];
 
   const general: NavItem[] = [
+    { id: "security", label: "Security", icon: Lock },
     { id: "privacy", label: "Privacy", icon: EyeOff },
     { id: "reliability", label: "Reliability", icon: Activity },
     { id: "timeline", label: "Timeline", icon: Clock },

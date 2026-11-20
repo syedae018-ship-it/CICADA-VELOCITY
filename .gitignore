@@ -37,3 +37,10 @@ handoff/
 
 # per-collector data folders (second collector etc.)
 collector/data-*/
+
+# Local collector build artifacts (Mujeeb's Windows installable)
+cicada-local-collector/build/
+cicada-local-collector/dist/
+cicada-local-collector/__pycache__/
+cicada-local-collector/**/__pycache__/
+cicada-local-collector/**/*.pyc

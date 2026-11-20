@@ -452,6 +452,35 @@ export async function rollbackLive(recId: string, tenantId: TenantId) {
   return postJson(`${SAAS_URL}/api/v1/recommendations/${encodeURIComponent(recId)}/rollback`, authHeader(tenantId));
 }
 
+/** Natural-language query against the AIOps engine. */
+export async function sendChatMessage(tenantId: TenantId, message: string, context: string = ""): Promise<Json> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 4000);
+  try {
+    const r = await fetch(`${SAAS_URL}/api/v1/chat`, {
+      method: "POST",
+      headers: { ...authHeader(tenantId), "Content-Type": "application/json" },
+      cache: "no-store",
+      signal: ctrl.signal,
+      body: JSON.stringify({ message, context }),
+    });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body?.detail ?? `HTTP ${r.status}`);
+    return body;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+/** Defense-in-depth 5-layer status. Returns null when backend offline. */
+export async function fetchSecurityLayers(tenantId: TenantId): Promise<Json | null> {
+  try {
+    return await getJson(`${SAAS_URL}/api/v1/security/layers`, authHeader(tenantId));
+  } catch {
+    return null;
+  }
+}
+
 /** SaaS health (storage backend) + this tenant's collector demo-driver status. Never throws. */
 export async function fetchBackendStatus(tenantId: TenantId): Promise<BackendStatus> {
   const out: BackendStatus = {

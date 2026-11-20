@@ -162,3 +162,84 @@ def get_baselines(tenant_id: str = Depends(get_tenant)):
         out.append({"source_id": source_id, "metric": metric, "mean": round(mean, 2), "std": round(std, 2),
                     "samples": n, "ready": n >= b.min_samples, "min_samples": b.min_samples})
     return sorted(out, key=lambda r: (r["source_id"], r["metric"]))
+
+
+@router.get("/security/layers")
+def get_security_layers(tenant_id: str = Depends(get_tenant)):
+    """Defense-in-depth status for the 5 security layers."""
+    sources = list(STORE.sources.get(tenant_id, {}).values())
+    collectors = list(STORE.collectors.get(tenant_id, {}).values())
+    incidents = STORE.incidents.get(tenant_id, [])
+    audit = STORE.audit_log.get(tenant_id, [])
+    alerts = STORE.alerts.get(tenant_id, [])
+
+    buffer_depth = sum(c.get("buffer_depth", 0) or 0 for c in collectors)
+    online_collectors = sum(1 for c in collectors if c.get("status") == "online")
+    security_alerts = sum(1 for a in alerts if a.get("kind") == "security")
+
+    return {
+        "tenant_id": tenant_id,
+        "overall_posture": "active",
+        "layers": [
+            {
+                "id": 1,
+                "name": "Local Scrubbing & Allow-Listing",
+                "tier": "Tier 1 Collector",
+                "description": "PII, secrets, emails, IPs stripped locally. Hostnames hashed. AI entropy + NER catches novel leaks.",
+                "status": "active",
+                "controls": ["regex redaction", "shannon entropy", "NER person/address", "payload allow-list"],
+                "metric": {"label": "Security events detected", "value": security_alerts},
+                "icon": "shield",
+            },
+            {
+                "id": 2,
+                "name": "Outbound-Only Firewall Posture",
+                "tier": "Tier 1 Transport",
+                "description": "Collector is HTTPS client only. Zero inbound ports. Local SQLite buffer survives network drops.",
+                "status": "active",
+                "controls": ["no listening socket", "outbound HTTPS", "exponential backoff", "replay-safe queue"],
+                "metric": {"label": "Buffered payloads", "value": buffer_depth},
+                "icon": "lock",
+            },
+            {
+                "id": 3,
+                "name": "Encrypted Transit + HMAC Auth",
+                "tier": "Boundary",
+                "description": "HMAC-SHA256 collector signature over timestamp + body. 300s replay window. TLS to Supabase.",
+                "status": "active",
+                "controls": ["HMAC-SHA256", "replay window 300s", "schema validation", "payload_id idempotency"],
+                "metric": {"label": "Collectors authenticated", "value": online_collectors},
+                "icon": "shield-check",
+            },
+            {
+                "id": 4,
+                "name": "Strict Multi-Tenant Isolation",
+                "tier": "Tier 2 SaaS",
+                "description": "tenant_id resolved from JWT or collector registry. Postgres RLS enforces isolation at the row.",
+                "status": "active",
+                "controls": ["JWT tenant claim", "Supabase RLS", "per-tenant partitions", "cross-tenant query = 0 rows"],
+                "metric": {"label": "Sources served (tenant)", "value": len(sources)},
+                "icon": "users",
+            },
+            {
+                "id": 5,
+                "name": "Safe Remediation & Audit Log",
+                "tier": "Tier 2 AIOps",
+                "description": "Every action simulation-only, human-approved, policy-checked, and fully reversible.",
+                "status": "active",
+                "controls": ["simulation mode", "policy gate", "approve/rollback", "immutable audit"],
+                "metric": {"label": "Audit entries", "value": len(audit)},
+                "icon": "file-check",
+            },
+        ],
+        "open_incidents": sum(1 for i in incidents if i.get("status") == "open"),
+    }
+
+
+@router.post("/chat")
+def chat(body: dict, tenant_id: str = Depends(get_tenant)):
+    """Natural-language query over AIOps state. Keyword-based intent router."""
+    from .chat import process_chat_message
+    message = (body or {}).get("message", "") if isinstance(body, dict) else ""
+    context = (body or {}).get("context", "") if isinstance(body, dict) else ""
+    return process_chat_message(message, tenant_id, context)

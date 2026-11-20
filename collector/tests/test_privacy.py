@@ -3,7 +3,7 @@ import pytest
 from pathlib import Path
 from jsonschema import Draft202012Validator
 
-from collector.redact import redact, redact_obj
+from collector.redact import redact, redact_obj, redact_with_details, redact_obj_with_details
 from collector.pseudo import source_id
 from collector.aggregate import build_payload
 from collector.detect import detect_events_in_window
@@ -28,6 +28,39 @@ def test_redaction_engine_all_secret_types():
         redacted, count = redact(raw)
         assert count > 0, f"Failed to detect secret in {label}"
         assert expected_token in redacted, f"Expected {expected_token} in redacted output for {label}"
+
+def test_local_ai_redaction_entropy_and_ner():
+    # 1. High-entropy unstructured random secret (no prefix, not an AWS key or JWT)
+    high_entropy_token = "9xK2mP8vL4tQ7wR1bN5j"  # 20 chars, random mixed case/digits, no kv keyword
+    redacted_key, reg_c, ai_c = redact_with_details(f"custom auth hash {high_entropy_token}")
+    assert ai_c > 0, "AI must catch high-entropy random keys that regex misses"
+    assert "(caught by AI)" in redacted_key
+    assert high_entropy_token not in redacted_key
+
+    # 2. Named-Entity (Free-text Person Name)
+    name_text = "customer: Jonathan Alexander Doe submitted request"
+    redacted_name, reg_c, ai_c = redact_with_details(name_text)
+    assert ai_c > 0, "AI must catch labeled personal full names"
+    assert "caught by AI" in redacted_name
+    assert "Jonathan Alexander Doe" not in redacted_name
+
+    # 3. Physical Street Address
+    address_text = "shipping order to 742 Evergreen Terrace Avenue for inspection"
+    redacted_addr, reg_c, ai_c = redact_with_details(address_text)
+    assert ai_c > 0, "AI must catch physical addresses"
+    assert "[REDACTED:ai_address (caught by AI)]" in redacted_addr
+    assert "742 Evergreen Terrace" not in redacted_addr
+
+    # 4. Exact test sentence: Person Name + Physical Address + High-Entropy Secret
+    test_sentence = "User Robert Bruce Banner at 10880 Malibu Point used token 7xK9mQ2vL8tP4wR1bN6jH3gA5zF0dC2e"
+    redacted_sent, reg_c, ai_c = redact_with_details(test_sentence)
+    assert ai_c == 3, f"Expected ai_catches == 3, got {ai_c} in: {redacted_sent}"
+    assert "[REDACTED:ai_person (caught by AI)]" in redacted_sent
+    assert "[REDACTED:ai_address (caught by AI)]" in redacted_sent
+    assert "[REDACTED:ai_high_entropy_secret (caught by AI)]" in redacted_sent
+    assert "Robert Bruce Banner" not in redacted_sent
+    assert "10880 Malibu Point" not in redacted_sent
+    assert "7xK9mQ2vL8tP4wR1bN6jH3gA5zF0dC2e" not in redacted_sent
 
 def test_pseudonymous_source_ids():
     host1 = "db-prod-01.acme.local"
@@ -70,7 +103,7 @@ def test_payload_builder_zero_leakage_and_schema():
             "service": "payments-api",
             "source_type": "app",
             "level": "ERROR",
-            "message": "DB connect failed user=admin password=hunter2 Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NSJ9.abcdefghijk"
+            "message": "DB connect failed user=admin password=hunter2 Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NSJ9.abcdefghijk patient name: Sarah Connor at 1042 Elm Street"
         }
     ]
 
@@ -102,7 +135,7 @@ def test_payload_builder_zero_leakage_and_schema():
 
     # 3. Assert zero leakage in entire JSON serialization
     serialized = json.dumps(payload)
-    for forbidden in ["hunter2", "eyJ", "AKIA", "@acme", "10.0.4.17", "illegal_metric"]:
+    for forbidden in ["hunter2", "eyJ", "AKIA", "@acme", "10.0.4.17", "illegal_metric", "Sarah Connor", "Elm Street"]:
         assert forbidden not in serialized, f"Leakage detected: {forbidden} found in payload!"
 
 def test_failed_login_detection_templated_summary():

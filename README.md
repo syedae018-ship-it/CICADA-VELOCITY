@@ -37,6 +37,35 @@ Requirements: Python 3.11+, Node 20+. First run installs everything into `.venv/
 
 ---
 
+## Windows desktop collector (installable)
+
+A standalone **Tkinter desktop app** that runs on any Windows 10/11 machine, collects local telemetry, redacts
+secrets locally and uploads only allow-listed metadata directly to Supabase — zero third-party HTTP dependencies
+(only `psutil`).
+
+```
+cicada-local-collector/
+├── collector/                    all source modules (metrics, redaction, allow-list, Supabase upload)
+├── cicada-collector.spec         PyInstaller spec  → CICADA-Collector.exe
+├── build_windows.ps1             one-shot build script (runs tests → PyInstaller → Inno Setup)
+├── installer/CICADA-Collector.iss Inno Setup installer script
+├── supabase/migrations/          Postgres schema (run once in Supabase SQL Editor)
+└── README_WINDOWS.md             end-user install + enrollment guide
+```
+
+Build the installer on Windows:
+```powershell
+cd cicada-local-collector
+.\build_windows.ps1
+# produces dist\installer\CICADA-Local-Collector-Setup.exe
+```
+
+See [`cicada-local-collector/README_WINDOWS.md`](cicada-local-collector/README_WINDOWS.md) for user-facing
+enrollment steps. The two-tier SaaS above and the desktop collector share Supabase but write to independent
+tables, so the main stack keeps working unchanged.
+
+---
+
 ## Architecture
 
 ```
