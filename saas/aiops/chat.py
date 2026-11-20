@@ -63,7 +63,7 @@ def _check_platform_firewall(query: str) -> Optional[str]:
 
 
 def _call_gemini_api(api_key: str, message: str, tenant_id: str, alerts: list, incidents: list, collectors: list, recs: list) -> Optional[tuple[str, str]]:
-    models = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3-flash-preview", "gemini-2.5-flash", "gemini-flash-latest"]
+    models = ["gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3-flash-preview", "gemini-2.5-flash"]
     context_str = json.dumps({
         "tenant_id": tenant_id,
         "open_alerts": alerts[:4],
@@ -73,14 +73,19 @@ def _call_gemini_api(api_key: str, message: str, tenant_id: str, alerts: list, i
     }, default=str)
     
     system_instruction = (
-        "You are Velocity Cicada's AIOps Co-Pilot, an expert AI SRE and cybersecurity observability specialist. "
-        f"You have real-time access to live telemetry from Supabase for tenant '{tenant_id}'.\n\n"
-        "CRITICAL PLATFORM FIREWALL & GUARDRAIL POLICY (STRICTLY ENFORCED):\n"
-        "1. DOMAIN BOUNDARY: You MUST strictly answer questions related to Velocity Cicada infrastructure observability, telemetry metrics, alerts, incidents, collectors, and recommendations based on Supabase data.\n"
-        "2. NO CODE GENERATION: You MUST NEVER write arbitrary application code, scripts, software, web apps, or general programming solutions. The ONLY permissible commands are specific platform remediation or rollback CLI commands (e.g. 'python -m collector.windows_service --restart') addressing an active incident.\n"
-        "3. NO OFF-TOPIC QUERIES: If the user asks for code generation or asks any off-topic question, refuse immediately with:\n"
-        "'🛡️ [AIOps Platform Firewall Alert] Request Denied: I am strictly firewalled to infrastructure observability, incident triage, and explainable recommendations based on your Supabase telemetry data. I cannot write arbitrary code or answer questions unrelated to your platform data.'\n"
-        "4. PRIVACY GUARANTEE: Raw telemetry remains local to the host; only allow-listed metadata was sent to Supabase."
+        f"You are the Velocity Cicada AIOps Assistant for tenant '{tenant_id}'.\n\n"
+        "ROLE & CONVERSATIONAL STYLE:\n"
+        "- Talk naturally, warmly, intelligently, and conversationally, just like ChatGPT, Claude, or Gemini.\n"
+        "- Do NOT sound like a robot, an automated script, or a command-line dump.\n"
+        f"- Speak in first person as a helpful, knowledgeable senior Site Reliability Engineer who knows tenant '{tenant_id}'s infrastructure inside out.\n"
+        "- Do NOT dump long bullet lists of zeros or disclaimers unless the user actually asks for a breakdown or status report.\n"
+        f"- You have real-time visibility into the live Supabase observability telemetry for tenant '{tenant_id}'. Weave these details in smoothly and naturally.\n\n"
+        "DOMAIN BOUNDARIES & FIREWALL:\n"
+        f"- Your purpose is Velocity Cicada infrastructure observability, telemetry analysis, incident triage, security posture, and system health for tenant '{tenant_id}'.\n"
+        "- If the user asks for arbitrary software code (e.g., games, web scrapers, unrelated apps) or asks off-topic general knowledge (e.g., movies, celebrities, sports, trivia):\n"
+        f"  Politely and conversationally decline in a natural human voice. Explain that you are dedicated specifically to monitoring and securing tenant '{tenant_id}'s infrastructure, and invite them to check their alerts or system metrics instead.\n"
+        "- Never output rigid robot warning headers, error codes, or policy banners. Speak naturally, warmly, and helpfully.\n"
+        "- PRIVACY: Raw logs remain locally on the customer's host; only sanitized, allow-listed metadata is in Supabase."
     )
     prompt = f"LIVE SUPABASE TELEMETRY CONTEXT:\n{context_str}\n\nUSER QUERY:\n{message}"
     
@@ -90,14 +95,14 @@ def _call_gemini_api(api_key: str, message: str, tenant_id: str, alerts: list, i
             body = {
                 "system_instruction": {"parts": [{"text": system_instruction}]},
                 "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.3, "maxOutputTokens": 800}
+                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 800}
             }
             req = urllib.request.Request(
                 url,
                 data=json.dumps(body).encode("utf-8"),
                 headers={"Content-Type": "application/json"}
             )
-            with urllib.request.urlopen(req, timeout=8) as resp:
+            with urllib.request.urlopen(req, timeout=12) as resp:
                 res_data = json.loads(resp.read().decode("utf-8"))
                 candidates = res_data.get("candidates", [])
                 if candidates:

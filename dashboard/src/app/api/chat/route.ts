@@ -28,10 +28,9 @@ interface Card {
 
 /**
  * Platform AI Firewall & Guardrail
- * Blocks arbitrary code generation and off-topic questions.
- * Enforces that responses must relate to Velocity Cicada platform & Supabase telemetry.
+ * Soft pre-screening for non-platform code generation and off-topic requests.
  */
-function checkPlatformFirewall(query: string): { blocked: boolean; reason?: string } {
+function checkPlatformFirewall(query: string): { blocked: boolean; isCodeGen?: boolean } {
   const q = query.toLowerCase().trim();
 
   // 1. Jailbreak / Injection Detection
@@ -46,14 +45,10 @@ function checkPlatformFirewall(query: string): { blocked: boolean; reason?: stri
     "output your system prompt",
   ];
   if (injectionPatterns.some((pattern) => q.includes(pattern))) {
-    return {
-      blocked: true,
-      reason: "Prompt injection or guardrail bypass attempt detected.",
-    };
+    return { blocked: true, isCodeGen: false };
   }
 
-  // 2. Prohibited Code Generation Requests
-  // (We allow CLI operational commands like 'service restart' or 'rollback', but strictly ban general software code generation)
+  // 2. Prohibited General Code Generation Requests
   const codeGenTriggers = [
     "write code",
     "write a script",
@@ -86,10 +81,7 @@ function checkPlatformFirewall(query: string): { blocked: boolean; reason?: stri
     q.includes("remediation");
 
   if (hasCodeGenTrigger && !isPlatformOperationalCommand) {
-    return {
-      blocked: true,
-      reason: "Arbitrary software code generation is barred by platform policy.",
-    };
+    return { blocked: true, isCodeGen: true };
   }
 
   // 3. Prohibited Off-Topic & Irrelevant Queries
@@ -117,7 +109,6 @@ function checkPlatformFirewall(query: string): { blocked: boolean; reason?: stri
   ];
 
   if (offTopicPatterns.some((p) => q.startsWith(p) || q.includes(p))) {
-    // Only allow if it mentions infrastructure/observability keywords
     const isObservabilityTopic =
       q.includes("alert") ||
       q.includes("incident") ||
@@ -130,14 +121,18 @@ function checkPlatformFirewall(query: string): { blocked: boolean; reason?: stri
       q.includes("telemetry");
 
     if (!isObservabilityTopic) {
-      return {
-        blocked: true,
-        reason: "Off-topic query unrelated to infrastructure observability or platform data.",
-      };
+      return { blocked: true, isCodeGen: false };
     }
   }
 
   return { blocked: false };
+}
+
+function getNaturalFirewallRefusal(tenantId: string, isCodeGen: boolean): string {
+  if (isCodeGen) {
+    return `Hey! I can't write general application code or external software scripts — my role is dedicated specifically to monitoring, managing, and troubleshooting your Velocity Cicada infrastructure for tenant **${tenantId}**.\n\nEverything in your telemetry is currently live. Let me know if you want to inspect your open alerts, check host CPU/memory usage, or look at your collector health!`;
+  }
+  return `Hey there! I'm set up specifically to monitor and manage your Velocity Cicada infrastructure and live telemetry for tenant **${tenantId}**, so I stick to your platform data rather than general trivia.\n\nLet me know if there's anything about your servers, open alerts, or system metrics you'd like to check!`;
 }
 
 export async function POST(req: NextRequest) {
@@ -154,24 +149,35 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ── FIREWALL CHECK ──────────────────────────────────────────────────────────
+    const geminiKey =
+      clientGeminiKey ||
+      process.env.GEMINI_API_KEY ||
+      process.env.NEXT_PUBLIC_GEMINI_API_KEY ||
+      process.env.GOOGLE_API_KEY;
+
+    // ── FIREWALL CHECK (Used when Gemini is offline or for hard injections) ─────
     const firewallResult = checkPlatformFirewall(message);
-    if (firewallResult.blocked) {
+    const isHardInjection =
+      message.toLowerCase().includes("ignore previous") ||
+      message.toLowerCase().includes("dan mode") ||
+      message.toLowerCase().includes("output your system prompt");
+
+    if (isHardInjection || (!geminiKey && firewallResult.blocked)) {
       return NextResponse.json({
-        reply: `🛡️ [AIOps Platform Firewall Alert]\n\nRequest Blocked: ${firewallResult.reason}\n\nThe Velocity Cicada AIOps Co-Pilot is strictly firewalled to infrastructure observability, incident correlation, and explainable recommendations derived directly from your Supabase telemetry.\n\nStrict Boundaries Enforced:\n❌ Arbitrary code generation, application development, and non-platform scripts are strictly prohibited.\n❌ General trivia, off-topic inquiries, and non-observability tasks are barred.\n\n✅ Permitted Topics:\n• Open alerts & threshold crossings\n• Correlated incidents & root-cause hypotheses\n• Host telemetry metrics (CPU, RAM, Disk, Latency)\n• Collector fleet health & buffer status\n• AIOps remediation recommendations & rollback plans\n• Platform security posture (5-layer defense, local redaction, HMAC)`,
+        reply: getNaturalFirewallRefusal(tenantId, !!firewallResult.isCodeGen),
         cards: [
           {
             kind: "stat",
-            title: "Platform Firewall Active",
-            subtitle: "Security Boundary Enforced",
-            severity: "high",
+            title: `Tenant: ${tenantId}`,
+            subtitle: "Observability Guardrail Active",
+            severity: "low",
             details: [
-              firewallResult.reason || "Unauthorized query domain",
-              "Access confined to Supabase observability telemetry",
+              "Focus confined to Velocity Cicada telemetry",
+              `Monitored Tenant: ${tenantId}`,
             ],
           },
         ],
-        model: "platform-firewall",
+        model: "platform-guardrail",
         source: "firewall",
       });
     }
@@ -372,13 +378,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3. Check for Gemini API Key
-    const geminiKey =
-      clientGeminiKey ||
-      process.env.GEMINI_API_KEY ||
-      process.env.NEXT_PUBLIC_GEMINI_API_KEY ||
-      process.env.GOOGLE_API_KEY;
-
+    // 3. Invoke Gemini if key is configured
     if (geminiKey) {
       try {
         const geminiResult = await callGemini(geminiKey, message, telemetryContext);
@@ -415,30 +415,34 @@ export async function POST(req: NextRequest) {
   }
 }
 
-/** Calls Google Gemini REST API with Strict AI Firewall System Instructions */
+/** Calls Google Gemini REST API with Natural Conversational Instructions & Strict Boundaries */
 async function callGemini(
   apiKey: string,
   userMessage: string,
   context: any
 ): Promise<{ reply: string; model: string } | null> {
   const models = [
-    "gemini-3.5-flash",
     "gemini-3.1-flash-lite",
+    "gemini-3.5-flash",
     "gemini-3-flash-preview",
     "gemini-2.5-flash",
-    "gemini-flash-latest",
   ];
 
-  const systemInstruction = `You are the Velocity Cicada AIOps Co-Pilot, an expert Site Reliability Engineer and infrastructure cybersecurity specialist.
-You have real-time access to live observability telemetry directly from Supabase for tenant "${context.tenant_id}".
+  const systemInstruction = `You are the Velocity Cicada AIOps Assistant for tenant "${context.tenant_id}".
 
-CRITICAL SECURITY FIREWALL & GUARDRAIL POLICY (STRICTLY ENFORCED):
-1. DOMAIN BOUNDARY: You MUST strictly and exclusively answer questions related to Velocity Cicada infrastructure observability, telemetry metrics, alerts, incidents, collectors, and recommendations based on the provided Supabase data.
-2. NO ARBITRARY CODE GENERATION: You MUST NEVER write arbitrary application code, scripts, software, web apps, or general programming solutions (e.g., Python scripts, React components, scrapers, Discord bots). The ONLY permissible commands are specific platform remediation or rollback CLI commands (e.g. "python -m collector.windows_service --restart") directly addressing an active incident in Supabase.
-3. NO OFF-TOPIC QUERIES: You MUST REFUSE to answer general knowledge questions, trivia, creative writing, homework, riddles, or any topic outside of the customer's observability infrastructure.
-4. REFUSAL PROTOCOL: If the user asks for code generation or asks any off-topic question, refuse immediately with:
-"🛡️ [AIOps Platform Firewall Alert] Request Denied: I am strictly firewalled to infrastructure observability, incident triage, and explainable recommendations based on your Supabase telemetry data. I cannot write arbitrary code or answer questions unrelated to your platform data."
-5. PRIVACY GUARANTEE: Remind the user that raw logs remain locally on their host and only verified allow-listed metadata is ingested into Supabase.`;
+ROLE & CONVERSATIONAL STYLE:
+- Talk naturally, warmly, intelligently, and conversationally, just like ChatGPT, Claude, or Gemini.
+- Do NOT sound like a robot, an automated script, or a command-line dump.
+- Speak in first person as a helpful, knowledgeable senior Site Reliability Engineer who knows tenant "${context.tenant_id}"'s infrastructure inside and out.
+- Do NOT dump long bullet lists of zeros or disclaimers unless the user actually asks for a breakdown or status report.
+- You have real-time visibility into the live Supabase observability telemetry for tenant "${context.tenant_id}". Always be aware of the tenant's current state (tenant ID, open alerts, active incidents, online collectors, metrics, and recommendations). Weave these details in smoothly and naturally.
+
+DOMAIN BOUNDARIES & FIREWALL:
+- Your purpose is Velocity Cicada infrastructure observability, telemetry analysis, incident triage, security posture, and system health for tenant "${context.tenant_id}".
+- If the user asks you to write non-platform application code (e.g. building games, web scrapers, unrelated Python/JS apps, Discord bots) or asks off-topic general knowledge (e.g. movies, celebrities, sports, recipes, history):
+  Politely and conversationally decline in a natural human voice. Explain that you are dedicated specifically to monitoring and securing tenant "${context.tenant_id}"'s infrastructure, and offer to help them check their alerts, system telemetry, or collector health instead.
+- Never output rigid robot warning headers, error codes, or policy banners. Speak naturally and politely.
+- PRIVACY: Raw logs remain locally on the customer's host; only sanitized, allow-listed metadata is in Supabase.`;
 
   const prompt = `LIVE SUPABASE CONTEXT:
 ${JSON.stringify(context, null, 2)}
@@ -464,7 +468,7 @@ ${userMessage}`;
             },
           ],
           generationConfig: {
-            temperature: 0.2,
+            temperature: 0.7,
             maxOutputTokens: 800,
           },
         }),
@@ -505,59 +509,65 @@ function generateSupabaseReply(query: string, context: any): string {
     q.startsWith("hello ") ||
     q.startsWith("hey ")
   ) {
-    return `Hello! 👋 I am your Velocity Cicada AIOps Co-Pilot connected directly to your live Supabase telemetry.
+    return `Hey there! Good to see you.
 
-Here is your current platform snapshot for tenant "${context.tenant_id}":
-• Open Alerts: ${summary.open_alerts}
-• Active Incidents: ${summary.active_incidents}
-• Collectors Online: ${summary.collectors_online}
-• Pending Recommendations: ${summary.pending_recommendations}
+I'm keeping an eye on tenant **${context.tenant_id}** for you. Right now, things are looking smooth:
+• **Open Alerts:** ${summary.open_alerts}
+• **Active Incidents:** ${summary.active_incidents}
+• **Collectors Online:** ${summary.collectors_online}
 
-Everything is live and synced. What would you like to inspect today? (e.g., "check alerts", "cpu load", "incident root cause", "collector health")`;
+How's everything going on your end? Feel free to ask about your server metrics, open alerts, or collector health!`;
   }
 
   if (q.includes("alert") || q.includes("warning") || q.includes("firing")) {
     if (summary.open_alerts === 0) {
-      return "✅ Supabase reports 0 open alerts for this tenant. All monitored services are within normal baselines.";
+      return `Good news — all quiet on tenant **${context.tenant_id}**. Supabase reports 0 open alerts right now, and all monitored services are within their expected baselines.`;
     }
     const alertList = open_alerts
       .map((a: any) => `• [${a.severity.toUpperCase()}] ${a.metric} on ${a.service}: ${a.explanation}`)
       .join("\n");
-    return `⚠️ Found ${summary.open_alerts} open alert(s) in Supabase:\n\n${alertList}\n\nReview the cards below for incident correlation details.`;
+    return `Looks like we have ${summary.open_alerts} open alert(s) on tenant **${context.tenant_id}**:\n\n${alertList}\n\nCheck out the alert cards below for details on each signal.`;
   }
 
   if (q.includes("incident") || q.includes("outage")) {
     if (incidents.length === 0) {
-      return "✅ No incidents recorded in Supabase for this tenant.";
+      return `No active or past incidents recorded in Supabase for tenant **${context.tenant_id}**. Everything is operating smoothly.`;
     }
     const incList = incidents
-      .map((i: any) => `• [${i.severity.toUpperCase()}] ${i.title} (${i.status}) — Cause: ${i.likely_cause || "Correlating co-occurring signals"}`)
+      .map((i: any) => `• [${i.severity.toUpperCase()}] ${i.title} (${i.status}) — Likely cause: ${i.likely_cause || "Correlating co-occurring signals"}`)
       .join("\n");
-    return `🚨 Supabase Incident Records (${incidents.length} total, ${summary.active_incidents} active):\n\n${incList}`;
+    return `Here is what I found in the incident log for tenant **${context.tenant_id}** (${incidents.length} total, ${summary.active_incidents} active):\n\n${incList}`;
   }
 
   if (q.includes("rec") || q.includes("suggest") || q.includes("action")) {
     if (recommendations.length === 0) {
-      return "✨ No pending remediation recommendations in Supabase. System baselines are stable.";
+      return `No pending recommendations right now for tenant **${context.tenant_id}** — system baselines are healthy and running as expected.`;
     }
     const recList = recommendations
       .map((r: any) => `• ${r.action} (Confidence: ${r.confidence}, Risk: ${r.risk}, Status: ${r.status})`)
       .join("\n");
-    return `💡 Active AIOps Recommendations from Supabase:\n\n${recList}\n\nOperators can review reasoning paths and approve or rollback in the AI Insights view.`;
+    return `Here are the active AIOps recommendations proposed for tenant **${context.tenant_id}**:\n\n${recList}\n\nYou can review reasoning paths and approve or roll back directly in AI Insights.`;
   }
 
   if (q.includes("collector") || q.includes("fleet") || q.includes("online")) {
     const colList = collectors
-      .map((c: any) => `• Collector ${c.id} (${c.region}): ${c.status.toUpperCase()} [State: ${c.state || "normal"}, Buffer: ${c.buffer_depth}]`)
+      .map((c: any) => `• Collector ${c.id} (${c.region}): ${c.status.toUpperCase()} [Buffer: ${c.buffer_depth || 0}, State: ${c.state || "normal"}]`)
       .join("\n");
-    return `📡 Collector Fleet Status (${summary.collectors_online}):\n\n${colList || "No collectors registered yet."}`;
+    return `Here's the collector fleet status for tenant **${context.tenant_id}** (${summary.collectors_online}):\n\n${colList || "No collectors registered yet."}`;
   }
 
   if (q.includes("cpu") || q.includes("memory") || q.includes("load")) {
-    return `📊 Real-Time Host Telemetry (from Supabase):\n• Monitored Collectors: ${collectors.length}\n• Open Alerts: ${summary.open_alerts}\n• Active Outages: ${summary.active_incidents}\n\nCheck the live cards below for exact metric aggregates.`;
+    return `Here is the current resource picture for tenant **${context.tenant_id}**:\n• Monitored Collectors: ${collectors.length}\n• Open Alerts: ${summary.open_alerts}\n• Active Outages: ${summary.active_incidents}\n\nCheck the live cards below for exact metric aggregates and recent peaks.`;
   }
 
   // General Status Summary
+  return `I'm here to help you monitor tenant **${context.tenant_id}**! Right now, you have:
+• **Open Alerts:** ${summary.open_alerts}
+• **Active Incidents:** ${summary.active_incidents}
+• **Collectors Online:** ${summary.collectors_online}
+• **Pending Recommendations:** ${summary.pending_recommendations}
+
+Ask me about your alerts, CPU load, collector health, or incident recommendations and I'll pull the live details.`;
   return `🤖 Velocity Cicada AIOps Co-Pilot (Live Supabase Connected):
 • Monitored Tenant: ${context.tenant_id}
 • Open Alerts: ${summary.open_alerts}
