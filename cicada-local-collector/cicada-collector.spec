@@ -25,6 +25,7 @@ hidden_imports = [
     'collector.supabase_client',
     'collector.enrollment',
     'collector.payload',
+    'collector.subprocess_util',
     'collector.system_info',
     'psutil',
     'sqlite3',
