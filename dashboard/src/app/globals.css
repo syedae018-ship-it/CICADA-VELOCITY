@@ -1,14 +1,55 @@
 @import "tailwindcss";
 
-/* Typography system
-   - body / UI text: Helvetica
-   - headings, KPI figures: Poppins
-   - IDs, hashes, payloads, metrics: JetBrains Mono */
+/* ──────────────────────────────── Design tokens ────────────────────────────────
+   Soft-grey canvas, large white rounded cards, a deep-green brand gradient, pill
+   buttons and chart elements. Also exposed as Tailwind utilities (bg-canvas, text-ink,
+   bg-brand-600, rounded-card, shadow-card, …) via @theme below.                 */
+
 @theme {
-  --font-sans: "Helvetica Neue", Helvetica, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
-  --font-display: var(--font-poppins), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-sans: var(--font-inter), "Helvetica Neue", Helvetica, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+  --font-display: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Surfaces */
+  --color-canvas: #f3f4f0;      /* page background */
+  --color-surface: #ffffff;     /* card background */
+  --color-surface-soft: #fafaf7; /* inset / second-level card */
+  --color-ink: #0f1a16;         /* primary text */
+  --color-ink-soft: #6b7265;    /* secondary text */
+  --color-hairline: #e5e7e0;    /* card border */
+
+  /* Brand (deep green → neon green ramp, like the reference) */
+  --color-brand-50: #eefaf0;
+  --color-brand-100: #d4f1d9;
+  --color-brand-200: #a8e2b4;
+  --color-brand-300: #6ec888;
+  --color-brand-400: #3eac63;
+  --color-brand-500: #1e8a47;
+  --color-brand-600: #137a3d;   /* primary */
+  --color-brand-700: #0e5f30;
+  --color-brand-800: #0a4523;
+  --color-brand-900: #063018;
+  --color-brand-950: #04210f;
+  --color-brand-mint: #c8f2a3;  /* bright accent used in the hero card */
+
+  /* Semantic */
+  --color-warn-50: #fef3c7;
+  --color-warn-700: #92400e;
+  --color-danger-50: #fee2e2;
+  --color-danger-700: #991b1b;
+  --color-info-50: #dbeafe;
+  --color-info-700: #1e40af;
+
+  /* Shape */
+  --radius-card: 1.25rem;        /* 20px: the signature rounded card */
+  --radius-pill: 9999px;
+
+  /* Shadow */
+  --shadow-card: 0 1px 2px rgba(15, 26, 22, 0.04), 0 1px 1px rgba(15, 26, 22, 0.02);
+  --shadow-cardLg: 0 8px 24px rgba(15, 26, 22, 0.06);
 }
+
+/* ──────────────────────────────── Base ──────────────────────────────── */
 
 @layer base {
   html, body {
@@ -16,36 +57,74 @@
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     font-family: var(--font-sans);
-    background-color: #ffffff;
-    color: #171717;
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
   }
   h1, h2, h3, h4 {
     font-family: var(--font-display);
-    letter-spacing: -0.01em;
+    letter-spacing: -0.02em;
   }
 }
 
-/* Large figures (KPI cards, metric values) read best in Poppins even where the markup says font-mono */
-.font-mono.text-2xl,
-.font-mono.text-3xl,
-.font-mono.text-4xl {
-  font-family: var(--font-display);
-  font-weight: 500;
-  letter-spacing: -0.02em;
+/* ──────────────────────────────── Component shortcuts ──────────────────────────────── */
+
+/* The signature rounded white card */
+.card {
+  background: var(--color-surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
 }
 
-/* Light minimal scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* Pill button (outline) */
+.btn-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: var(--radius-pill);
+  padding: 0.65rem 1.1rem;
+  font-weight: 600;
+  font-size: 0.8rem;
+  border: 1px solid var(--color-brand-700);
+  color: var(--color-brand-800);
+  background: var(--color-surface);
+  transition: background 0.15s, color 0.15s;
 }
-::-webkit-scrollbar-track {
-  background: #f5f5f5;
+.btn-pill:hover { background: var(--color-brand-50); }
+
+/* Pill button (filled dark green) */
+.btn-pill-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: var(--radius-pill);
+  padding: 0.65rem 1.1rem;
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: #ffffff;
+  background: var(--color-brand-700);
+  transition: background 0.15s;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
 }
-::-webkit-scrollbar-thumb {
-  background: #d4d4d4;
-  border-radius: 3px;
+.btn-pill-primary:hover { background: var(--color-brand-800); }
+
+/* Diagonal hatch pattern used by chart bars and gauge "empty" segments */
+.hatch {
+  background-image: repeating-linear-gradient(
+    135deg,
+    #b8c0b0 0 2px,
+    transparent 2px 7px
+  );
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #a3a3a3;
+.hatch-green {
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(19,122,61,0.35) 0 2px,
+    transparent 2px 7px
+  );
 }
+
+/* Minimal scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d6d8d0; border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: #b4b7ab; }

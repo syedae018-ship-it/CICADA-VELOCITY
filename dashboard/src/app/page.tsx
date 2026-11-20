@@ -160,7 +160,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen flex bg-neutral-50/50 text-neutral-900 font-sans">
+    <div className="min-h-screen flex bg-canvas text-ink font-sans">
       {/* Sidebar with Desktop Collapse & Mobile Drawer */}
       <Sidebar
         currentTab={currentTab}
@@ -171,6 +171,7 @@ export default function DashboardPage() {
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         isMobileOpen={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
+        onSignOut={userEmail ? handleSignOut : undefined}
       />
 
       {/* Main Content Area */}
@@ -204,7 +205,7 @@ export default function DashboardPage() {
           onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
         />
 
-        <main className="flex-1 p-5 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 px-3 lg:px-6 pt-4 pb-10 w-full max-w-[1440px] mx-auto">
           {currentTab === "overview" && (
             <OverviewView
               sources={sources}

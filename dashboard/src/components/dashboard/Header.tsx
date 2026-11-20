@@ -6,15 +6,19 @@ import {
   RefreshCw,
   Search,
   Bell,
-  Check,
   ChevronDown,
   Menu,
+  Mail,
   Shield,
-  Wifi,
-  User,
-  Zap,
 } from "lucide-react";
-import { TenantId, NotificationItem, TimeRange, ScenarioId, SCENARIOS, BackendStatus } from "@/types";
+import {
+  TenantId,
+  NotificationItem,
+  TimeRange,
+  ScenarioId,
+  SCENARIOS,
+  BackendStatus,
+} from "@/types";
 
 interface HeaderProps {
   tenantId: TenantId;
@@ -22,9 +26,6 @@ interface HeaderProps {
   onScenarioTrigger: (scenario: ScenarioId) => void;
   backend: BackendStatus;
   scenarioMessage: string | null;
-  userEmail: string | null;
-  tenantLocked: boolean;
-  onSignOut: () => void;
   onResetDemo: () => void;
   onOpenSearch: () => void;
   notifications: NotificationItem[];
@@ -33,6 +34,9 @@ interface HeaderProps {
   timeRange: TimeRange;
   onTimeRangeChange: (tr: TimeRange) => void;
   onToggleMobileSidebar: () => void;
+  userEmail: string | null;
+  tenantLocked: boolean;
+  onSignOut: () => void;
 }
 
 export default function Header({
@@ -41,9 +45,6 @@ export default function Header({
   onScenarioTrigger,
   backend,
   scenarioMessage,
-  userEmail,
-  tenantLocked,
-  onSignOut,
   onResetDemo,
   onOpenSearch,
   notifications,
@@ -52,73 +53,58 @@ export default function Header({
   timeRange,
   onTimeRangeChange,
   onToggleMobileSidebar,
+  userEmail,
+  tenantLocked,
+  onSignOut,
 }: HeaderProps) {
-  const [timeUtc, setTimeUtc] = useState<string>("");
-  const [showNotifMenu, setShowNotifMenu] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
-
+  const [showNotif, setShowNotif] = useState(false);
+  const [showUser, setShowUser] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unread = notifications.filter((n) => !n.read).length;
 
   useEffect(() => {
-    const tick = () => {
-      const now = new Date();
-      setTimeUtc(now.toISOString().slice(0, 19).replace("T", " ") + " UTC");
+    const click = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setShowNotif(false);
+      if (userRef.current && !userRef.current.contains(e.target as Node)) setShowUser(false);
     };
-    tick();
-    const timer = setInterval(tick, 1000);
-    return () => clearInterval(timer);
+    document.addEventListener("mousedown", click);
+    return () => document.removeEventListener("mousedown", click);
   }, []);
 
-  // Close menus on outside click
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
-        setShowNotifMenu(false);
-      }
-      if (userRef.current && !userRef.current.contains(e.target as Node)) {
-        setShowUserMenu(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  const initials = (userEmail ?? "Demo").split("@")[0].slice(0, 2).toUpperCase();
 
   return (
-    <header className="h-14 border-b border-neutral-200 bg-white px-4 sm:px-6 flex items-center justify-between shrink-0 sticky top-0 z-30 font-sans shadow-2xs">
-      {/* Left: Mobile hamburger & Global Search Button */}
-      <div className="flex items-center gap-3">
+    <div className="pt-3 px-3 lg:pt-5 lg:px-6">
+      <header className="card flex items-center gap-3 px-3 lg:px-4 py-2.5 lg:py-3">
+        {/* Mobile menu */}
         <button
           onClick={onToggleMobileSidebar}
-          className="lg:hidden p-1.5 rounded border border-neutral-200 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
-          title="Toggle Navigation"
+          className="lg:hidden h-9 w-9 rounded-xl border border-hairline flex items-center justify-center text-ink-soft"
         >
           <Menu className="w-4 h-4" />
         </button>
 
-        {/* Global Search input trigger */}
+        {/* Search pill */}
         <button
           onClick={onOpenSearch}
-          className="flex items-center gap-2.5 px-3 py-1.5 rounded border border-neutral-200 bg-neutral-50 hover:bg-neutral-100 text-neutral-500 text-xs transition w-44 sm:w-64 justify-between"
+          className="flex-1 min-w-[180px] flex items-center gap-2.5 h-10 lg:h-11 px-4 rounded-full bg-canvas/60 border border-hairline text-ink-soft hover:border-brand-200 transition"
         >
-          <div className="flex items-center gap-2">
-            <Search className="w-3.5 h-3.5 text-neutral-400" />
-            <span className="truncate">Search infrastructure...</span>
-          </div>
-          <kbd className="hidden sm:inline-block text-[10px] font-mono border border-neutral-200 px-1 rounded bg-white text-neutral-400">
+          <Search className="w-4 h-4" />
+          <span className="truncate text-sm">Search sources, incidents, payloads…</span>
+          <span className="ml-auto hidden sm:inline text-[10px] font-mono text-ink-soft/60 border border-hairline rounded-md px-1.5 py-0.5">
             ⌘K
-          </kbd>
+          </span>
         </button>
 
-        {/* Time-Range Selector */}
-        <div className="hidden md:flex items-center gap-1.5 pl-2 border-l border-neutral-200">
-          <Clock className="w-3.5 h-3.5 text-neutral-400" />
+        {/* Time range */}
+        <div className="hidden md:flex items-center gap-1.5 h-10 px-3 rounded-full border border-hairline text-xs text-ink-soft">
+          <Clock className="w-3.5 h-3.5" />
           <select
             value={timeRange}
             onChange={(e) => onTimeRangeChange(e.target.value as TimeRange)}
-            className="bg-transparent text-xs font-mono text-neutral-700 focus:outline-none cursor-pointer"
+            aria-label="Time range"
+            className="bg-transparent focus:outline-none cursor-pointer"
           >
             <option value="15m">Last 15 min</option>
             <option value="1h">Last 1 hour</option>
@@ -127,100 +113,133 @@ export default function Header({
             <option value="7d">Last 7 days</option>
           </select>
         </div>
-      </div>
 
-      {/* Right Controls */}
-      <div className="flex items-center gap-2.5">
-        {/* Connection status: live backend vs sample data */}
+        {/* Live status pill */}
         <div
-          className={`hidden md:flex items-center gap-1.5 px-2 py-1 rounded border text-[10px] font-semibold uppercase tracking-wide ${
+          className={`hidden md:flex items-center gap-2 h-10 px-3 rounded-full text-[11px] font-semibold uppercase tracking-wide ${
             backend.live
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-amber-200 bg-amber-50 text-amber-800"
+              ? "bg-brand-50 text-brand-800 border border-brand-100"
+              : "bg-amber-50 text-amber-800 border border-amber-100"
           }`}
           title={
             backend.live
-              ? `SaaS connected · storage: ${backend.storage ?? "?"} · collector ${backend.collectorReachable ? "reachable" : "not reachable"}`
-              : "Backend not reachable: showing sample data"
+              ? `Backend live · storage ${backend.storage ?? "?"} · collector ${backend.collectorReachable ? "reachable" : "offline"}`
+              : "Backend offline — showing sample data"
           }
         >
-          <span className={`h-1.5 w-1.5 rounded-full ${backend.live ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
+          <span
+            className={`h-1.5 w-1.5 rounded-full ${backend.live ? "bg-brand-600 animate-pulse" : "bg-amber-500"}`}
+          />
           {backend.live ? `Live · ${backend.storage === "supabase" ? "Supabase" : backend.storage ?? "SaaS"}` : "Sample data"}
         </div>
 
+        {/* Running-scenario chip */}
+        {(scenarioMessage || backend.scenario) && (
+          <div className="hidden xl:block max-w-[220px] truncate text-[11px] text-brand-800 bg-brand-50 border border-brand-100 rounded-full px-3 py-2">
+            {scenarioMessage ?? `Running: ${backend.scenario} · ${backend.secondsLeft}s`}
+          </div>
+        )}
 
-        {/* Tenant selector */}
-        <div className="flex items-center gap-1.5">
+        {/* Scenario menu */}
+        <div className="hidden sm:block">
           <select
-            value={tenantId}
-            disabled={tenantLocked}
-            title={tenantLocked ? "Signed in: your account can only see its own tenant (RLS)" : "Demo mode: switch tenant"}
-            onChange={(e) => onTenantChange(e.target.value as TenantId)}
-            className="bg-neutral-50 border border-neutral-200 text-neutral-900 text-xs font-semibold px-2 py-1 rounded focus:outline-none focus:border-neutral-400 cursor-pointer"
+            defaultValue=""
+            aria-label="Inject scenario"
+            onChange={(e) => {
+              if (e.target.value) {
+                onScenarioTrigger(e.target.value as ScenarioId);
+                e.target.value = "";
+              }
+            }}
+            className="h-10 pl-4 pr-8 rounded-full text-xs font-semibold text-white bg-brand-700 hover:bg-brand-800 cursor-pointer focus:outline-none"
           >
-            <option value="t_acme">Acme Corp (t_acme)</option>
-            <option value="t_globex">Globex Corp (t_globex)</option>
+            <option value="" disabled className="text-ink">
+              {backend.live ? "Inject scenario" : "Scenario (sample)"}
+            </option>
+            {SCENARIOS.map((s, i) => (
+              <option key={s.id} value={s.id} className="text-ink">
+                {i + 1}. {s.label}
+              </option>
+            ))}
           </select>
         </div>
 
-        {/* Notification Bell Dropdown */}
+        {/* Reset */}
+        <button
+          onClick={onResetDemo}
+          title="Reset baseline"
+          className="h-10 w-10 rounded-full border border-hairline flex items-center justify-center text-ink-soft hover:text-ink hover:bg-brand-50/60"
+        >
+          <RefreshCw className="w-4 h-4" />
+        </button>
+
+        {/* Tenant pill */}
+        <div className="hidden xl:flex items-center gap-2 h-10 pl-3 pr-2 rounded-full border border-hairline">
+          <span className="text-[11px] font-semibold text-ink">
+            {tenantId === "t_acme" ? "Acme Corp" : "Globex Corp"}
+          </span>
+          <select
+            value={tenantId}
+            disabled={tenantLocked}
+            title={tenantLocked ? "Signed in: your account can only see its own tenant (RLS)" : "Switch tenant"}
+            onChange={(e) => onTenantChange(e.target.value as TenantId)}
+            aria-label="Tenant"
+            className="text-[11px] font-semibold text-ink bg-transparent focus:outline-none cursor-pointer"
+          >
+            <option value="t_acme">(t_acme)</option>
+            <option value="t_globex">(t_globex)</option>
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-ink-soft" />
+        </div>
+
+        {/* Mail (decorative) */}
+        <button
+          className="hidden lg:flex h-10 w-10 rounded-full border border-hairline items-center justify-center text-ink-soft hover:text-ink hover:bg-brand-50/60"
+          title="Messages"
+        >
+          <Mail className="w-4 h-4" />
+        </button>
+
+        {/* Notifications */}
         <div className="relative" ref={notifRef}>
           <button
-            onClick={() => setShowNotifMenu(!showNotifMenu)}
-            className="relative p-1.5 rounded border border-neutral-200 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50 transition"
-            title="Notifications"
+            onClick={() => setShowNotif((v) => !v)}
+            className="relative h-10 w-10 rounded-full border border-hairline flex items-center justify-center text-ink-soft hover:text-ink hover:bg-brand-50/60"
+            aria-label="Notifications"
           >
             <Bell className="w-4 h-4" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-600 text-[9px] font-bold text-white font-mono">
-                {unreadCount}
+            {unread > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full bg-brand-700 text-[10px] font-semibold text-white flex items-center justify-center">
+                {unread}
               </span>
             )}
           </button>
-
-          {showNotifMenu && (
-            <div className="absolute right-0 mt-2 w-80 rounded-lg border border-neutral-200 bg-white shadow-xl z-50 overflow-hidden text-xs">
-              <div className="p-3 border-b border-neutral-100 flex items-center justify-between">
-                <span className="font-bold text-neutral-900">Notifications</span>
-                {unreadCount > 0 && (
-                  <button
-                    onClick={onMarkAllNotificationsRead}
-                    className="text-[11px] text-blue-600 hover:text-blue-800 font-medium"
-                  >
-                    Mark all read
-                  </button>
-                )}
+          {showNotif && (
+            <div className="absolute right-0 mt-2 w-80 rounded-2xl bg-surface shadow-cardLg border border-hairline overflow-hidden z-50">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-hairline">
+                <div className="text-sm font-semibold">Notifications</div>
+                <button
+                  onClick={onMarkAllNotificationsRead}
+                  className="text-xs text-brand-800 hover:underline"
+                >
+                  Mark all read
+                </button>
               </div>
-              <div className="max-h-72 overflow-y-auto divide-y divide-neutral-100">
+              <div className="max-h-80 overflow-y-auto">
                 {notifications.length === 0 ? (
-                  <div className="p-4 text-center text-neutral-400">No notifications.</div>
+                  <div className="px-4 py-6 text-xs text-ink-soft text-center">No alerts yet.</div>
                 ) : (
-                  notifications.map((n) => (
-                    <div
+                  notifications.slice(0, 10).map((n) => (
+                    <button
                       key={n.id}
                       onClick={() => onMarkNotificationRead(n.id)}
-                      className={`p-3 cursor-pointer transition ${
-                        !n.read ? "bg-blue-50/40" : "hover:bg-neutral-50"
+                      className={`w-full text-left px-4 py-2.5 border-b border-hairline/60 hover:bg-brand-50/60 ${
+                        n.read ? "opacity-70" : ""
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-1 mb-0.5">
-                        <span
-                          className={`font-semibold ${
-                            n.type === "critical"
-                              ? "text-rose-950"
-                              : n.type === "security"
-                              ? "text-amber-950"
-                              : "text-neutral-900"
-                          }`}
-                        >
-                          {n.title}
-                        </span>
-                        <span className="text-[10px] text-neutral-400 shrink-0 font-mono">
-                          {n.timestamp}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-neutral-600 leading-snug">{n.message}</p>
-                    </div>
+                      <div className="text-xs font-semibold text-ink truncate">{n.title}</div>
+                      <div className="text-[11px] text-ink-soft line-clamp-2">{n.message}</div>
+                    </button>
                   ))
                 )}
               </div>
@@ -228,82 +247,52 @@ export default function Header({
           )}
         </div>
 
-        {(scenarioMessage || backend.scenario) && (
-          <div className="hidden lg:block max-w-[260px] truncate text-[11px] text-neutral-700 bg-neutral-100 border border-neutral-200 rounded px-2 py-1">
-            {scenarioMessage ?? `Running: ${backend.scenario} · ${backend.secondsLeft}s left`}
-          </div>
-        )}
-
-        {/* Demo Scenarios selector */}
-        <div className="hidden sm:flex items-center gap-1.5">
-          <select
-            defaultValue=""
-            aria-label="Inject a live scenario"
-            onChange={(e) => {
-              if (e.target.value) {
-                onScenarioTrigger(e.target.value as ScenarioId);
-                e.target.value = "";
-              }
-            }}
-            className="bg-neutral-50 border border-neutral-200 text-xs font-mono text-neutral-800 px-2 py-1 rounded focus:outline-none focus:border-neutral-400 cursor-pointer"
-          >
-            <option value="" disabled>
-              {backend.live ? "Inject scenario…" : "Scenario (sample)…"}
-            </option>
-            {SCENARIOS.map((s, i) => (
-              <option key={s.id} value={s.id}>
-                {i + 1}. {s.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Reset button */}
-        <button
-          onClick={onResetDemo}
-          title="Reset baseline"
-          className="flex items-center gap-1 px-2.5 py-1 rounded border border-neutral-200 bg-neutral-50 text-xs font-mono text-neutral-600 hover:text-neutral-900 hover:border-neutral-300 transition"
-        >
-          <RefreshCw className="w-3 h-3" />
-        </button>
-
-        {/* User profile menu */}
+        {/* User */}
         <div className="relative" ref={userRef}>
           <button
-            onClick={() => setShowUserMenu(!showUserMenu)}
-            className="flex items-center gap-1.5 p-1 rounded hover:bg-neutral-100 transition"
+            onClick={() => setShowUser((v) => !v)}
+            className="flex items-center gap-2 h-11 pl-1 pr-3 rounded-full border border-hairline hover:bg-brand-50/60"
           >
-            <div className="h-7 w-7 rounded-full bg-neutral-900 text-white flex items-center justify-center text-xs font-bold font-mono">
-              {(userEmail ?? "Demo").slice(0, 2).toUpperCase()}
-            </div>
-            <ChevronDown className="w-3 h-3 text-neutral-500 hidden sm:inline" />
+            <span className="h-9 w-9 rounded-full bg-brand-700 text-white text-xs font-bold flex items-center justify-center">
+              {initials}
+            </span>
+            <span className="hidden sm:block text-left leading-tight">
+              <div className="text-xs font-semibold text-ink">
+                {userEmail ? userEmail.split("@")[0] : "Demo operator"}
+              </div>
+              <div className="text-[10px] text-ink-soft">
+                {userEmail ? "Signed in" : "Demo mode"}
+              </div>
+            </span>
+            <ChevronDown className="w-3.5 h-3.5 text-ink-soft hidden sm:inline" />
           </button>
-
-          {showUserMenu && (
-            <div className="absolute right-0 mt-2 w-52 rounded-lg border border-neutral-200 bg-white shadow-xl z-50 p-2 text-xs">
-              <div className="p-2 border-b border-neutral-100 mb-1">
-                <div className="font-bold text-neutral-900 truncate">{userEmail ?? "Demo operator"}</div>
-                <div className="text-[10px] text-neutral-500 font-mono">
-                  {userEmail ? "Signed in with Supabase Auth" : "Demo mode (dev tokens)"}
+          {showUser && (
+            <div className="absolute right-0 mt-2 w-60 rounded-2xl bg-surface shadow-cardLg border border-hairline overflow-hidden z-50 p-2 text-sm">
+              <div className="px-3 py-2">
+                <div className="font-semibold text-ink truncate">
+                  {userEmail ?? "Demo operator"}
+                </div>
+                <div className="text-[11px] text-ink-soft">
+                  {userEmail ? "Supabase Auth" : "Dev tokens"}
                 </div>
               </div>
-              <div className="p-2 text-neutral-600 space-y-1">
-                <div className="flex items-center justify-between text-[11px] font-mono">
-                  <span>Tenant Scope:</span>
-                  <span className="font-semibold text-neutral-900">{tenantId}</span>
-                </div>
-                <div className="flex items-center justify-between text-[11px] font-mono">
-                  <span>RLS Security:</span>
-                  <span className="text-emerald-700 font-bold">Enforced</span>
-                </div>
+              <div className="px-3 py-2 text-[11px] text-ink-soft flex items-center gap-2 border-t border-hairline/60">
+                <Shield className="w-3.5 h-3.5 text-brand-700" />
+                RLS enforced on every query
               </div>
-              <div className="border-t border-neutral-100 mt-1 pt-1">
+              <div className="border-t border-hairline/60 pt-1">
                 {userEmail ? (
-                  <button onClick={onSignOut} className="w-full text-left p-2 rounded hover:bg-neutral-50 text-neutral-700">
+                  <button
+                    onClick={onSignOut}
+                    className="w-full text-left px-3 py-2 rounded-xl hover:bg-brand-50/60 text-ink"
+                  >
                     Sign out
                   </button>
                 ) : (
-                  <a href="/login" className="block p-2 rounded hover:bg-neutral-50 text-neutral-700">
+                  <a
+                    href="/login"
+                    className="block px-3 py-2 rounded-xl hover:bg-brand-50/60 text-ink"
+                  >
                     Sign in with tenant account
                   </a>
                 )}
@@ -311,7 +300,7 @@ export default function Header({
             </div>
           )}
         </div>
-      </div>
-    </header>
+      </header>
+    </div>
   );
 }

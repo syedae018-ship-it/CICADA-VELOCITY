@@ -71,44 +71,44 @@ export default function SourcesView({ sources, onSelectSource }: SourcesViewProp
   const stateBadge = (state: HealthState) => {
     switch (state) {
       case "excellent":
-        return <span className="border border-neutral-200 bg-neutral-100 text-neutral-800 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase">EXCELLENT</span>;
+        return <span className="border border-hairline bg-neutral-100 text-ink px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase">EXCELLENT</span>;
       case "good":
-        return <span className="border border-neutral-200 bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase">GOOD</span>;
+        return <span className="border border-hairline bg-neutral-100 text-ink-soft px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase">GOOD</span>;
       case "fair":
-        return <span className="border border-amber-300 bg-amber-50 text-amber-800 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase">FAIR</span>;
+        return <span className="border border-amber-200 bg-amber-50 text-amber-800 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase">FAIR</span>;
       case "poor":
-        return <span className="border border-rose-300 bg-rose-50 text-rose-800 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase">POOR</span>;
+        return <span className="border border-rose-200 bg-rose-50 text-rose-800 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase">POOR</span>;
     }
   };
 
   return (
     <div className="space-y-5 font-sans">
       {/* Title */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-neutral-200 gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-hairline gap-2">
         <div>
-          <h1 className="text-lg font-bold text-neutral-900 uppercase tracking-tight">
+          <h1 className="text-lg font-bold text-ink uppercase tracking-tight">
             Monitored Infrastructure Sources
           </h1>
-          <p className="text-xs text-neutral-500">
+          <p className="text-xs text-ink-soft">
             Realtime workload metrics, health classifications, and pseudonymous telemetry metadata
           </p>
         </div>
-        <div className="text-xs font-mono text-neutral-600">
+        <div className="text-xs font-mono text-ink-soft">
           Showing {filteredSources.length} of {sources.length} Total Sources
         </div>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="border border-neutral-200 bg-white p-3.5 rounded-lg shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div className="border border-hairline bg-white p-3.5 rounded-lg shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
         {/* Search */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded border border-neutral-200 bg-neutral-50 w-full sm:w-64">
-          <Search className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded border border-hairline bg-canvas w-full sm:w-64">
+          <Search className="w-3.5 h-3.5 text-ink-soft/70 shrink-0" />
           <input
             type="text"
             placeholder="Search service, source ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="bg-transparent text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-none w-full"
+            className="bg-transparent text-xs text-ink placeholder:text-ink-soft/70 focus:outline-none w-full"
           />
         </div>
 
@@ -116,11 +116,11 @@ export default function SourcesView({ sources, onSelectSource }: SourcesViewProp
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           {/* Health Status Filter */}
           <div className="flex items-center gap-1.5">
-            <span className="text-neutral-500 text-[11px] font-medium">Status:</span>
+            <span className="text-ink-soft text-[11px] font-medium">Status:</span>
             <select
               value={stateFilter}
               onChange={(e) => setStateFilter(e.target.value as any)}
-              className="bg-neutral-50 border border-neutral-200 px-2.5 py-1 rounded text-xs text-neutral-800 font-mono focus:outline-none"
+              className="bg-canvas border border-hairline px-2.5 py-1 rounded text-xs text-ink font-mono focus:outline-none"
             >
               <option value="all">All States</option>
               <option value="excellent">Excellent</option>
@@ -132,11 +132,11 @@ export default function SourcesView({ sources, onSelectSource }: SourcesViewProp
 
           {/* Type Filter */}
           <div className="flex items-center gap-1.5">
-            <span className="text-neutral-500 text-[11px] font-medium">Type:</span>
+            <span className="text-ink-soft text-[11px] font-medium">Type:</span>
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value as any)}
-              className="bg-neutral-50 border border-neutral-200 px-2.5 py-1 rounded text-xs text-neutral-800 font-mono focus:outline-none"
+              className="bg-canvas border border-hairline px-2.5 py-1 rounded text-xs text-ink font-mono focus:outline-none"
             >
               <option value="all">All Types</option>
               <option value="server">Server</option>
@@ -148,11 +148,11 @@ export default function SourcesView({ sources, onSelectSource }: SourcesViewProp
 
           {/* Region Filter */}
           <div className="flex items-center gap-1.5">
-            <span className="text-neutral-500 text-[11px] font-medium">Region:</span>
+            <span className="text-ink-soft text-[11px] font-medium">Region:</span>
             <select
               value={regionFilter}
               onChange={(e) => setRegionFilter(e.target.value)}
-              className="bg-neutral-50 border border-neutral-200 px-2.5 py-1 rounded text-xs text-neutral-800 font-mono focus:outline-none"
+              className="bg-canvas border border-hairline px-2.5 py-1 rounded text-xs text-ink font-mono focus:outline-none"
             >
               <option value="all">All Regions</option>
               <option value="ap-south-1">ap-south-1</option>
@@ -163,14 +163,14 @@ export default function SourcesView({ sources, onSelectSource }: SourcesViewProp
       </div>
 
       {/* Main Sources Table */}
-      <div className="border border-neutral-200 bg-white rounded-lg overflow-hidden shadow-xs">
+      <div className="card overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs font-mono">
-            <thead className="bg-neutral-50 border-b border-neutral-200 text-neutral-500 text-[10px] uppercase tracking-wider">
+            <thead className="bg-canvas border-b border-hairline text-ink-soft text-[10px] uppercase tracking-wider">
               <tr>
                 <th
                   onClick={() => toggleSort("service")}
-                  className="py-3 px-4 font-semibold cursor-pointer hover:text-neutral-900"
+                  className="py-3 px-4 font-semibold cursor-pointer hover:text-ink"
                 >
                   <div className="flex items-center gap-1">
                     <span>Source & Service</span>
@@ -180,7 +180,7 @@ export default function SourcesView({ sources, onSelectSource }: SourcesViewProp
                 <th className="py-3 px-4 font-semibold">Category / Region</th>
                 <th
                   onClick={() => toggleSort("state")}
-                  className="py-3 px-4 font-semibold cursor-pointer hover:text-neutral-900"
+                  className="py-3 px-4 font-semibold cursor-pointer hover:text-ink"
                 >
                   <div className="flex items-center gap-1">
                     <span>State</span>
@@ -189,7 +189,7 @@ export default function SourcesView({ sources, onSelectSource }: SourcesViewProp
                 </th>
                 <th
                   onClick={() => toggleSort("cpu")}
-                  className="py-3 px-4 font-semibold cursor-pointer hover:text-neutral-900"
+                  className="py-3 px-4 font-semibold cursor-pointer hover:text-ink"
                 >
                   <div className="flex items-center gap-1">
                     <span>CPU %</span>
@@ -198,7 +198,7 @@ export default function SourcesView({ sources, onSelectSource }: SourcesViewProp
                 </th>
                 <th
                   onClick={() => toggleSort("mem")}
-                  className="py-3 px-4 font-semibold cursor-pointer hover:text-neutral-900"
+                  className="py-3 px-4 font-semibold cursor-pointer hover:text-ink"
                 >
                   <div className="flex items-center gap-1">
                     <span>RAM %</span>
@@ -207,7 +207,7 @@ export default function SourcesView({ sources, onSelectSource }: SourcesViewProp
                 </th>
                 <th
                   onClick={() => toggleSort("latency")}
-                  className="py-3 px-4 font-semibold cursor-pointer hover:text-neutral-900"
+                  className="py-3 px-4 font-semibold cursor-pointer hover:text-ink"
                 >
                   <div className="flex items-center gap-1">
                     <span>Latency</span>
@@ -222,7 +222,7 @@ export default function SourcesView({ sources, onSelectSource }: SourcesViewProp
             <tbody className="divide-y divide-neutral-100">
               {filteredSources.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-neutral-500">
+                  <td colSpan={9} className="py-8 text-center text-ink-soft">
                     No sources match the selected criteria.
                   </td>
                 </tr>
@@ -231,24 +231,24 @@ export default function SourcesView({ sources, onSelectSource }: SourcesViewProp
                   <tr
                     key={s.source_id}
                     onClick={() => onSelectSource(s)}
-                    className="hover:bg-neutral-50/70 transition cursor-pointer group"
+                    className="hover:bg-canvas/70 transition cursor-pointer group"
                   >
                     {/* Service Name & Pseudonym ID */}
                     <td className="py-3.5 px-4">
-                      <div className="font-bold text-neutral-900 font-sans text-xs">
+                      <div className="font-bold text-ink font-sans text-xs">
                         {s.service}
                       </div>
-                      <span className="text-[10px] text-neutral-500 font-mono">
+                      <span className="text-[10px] text-ink-soft font-mono">
                         {s.source_id}
                       </span>
                     </td>
 
                     {/* Category & Region */}
-                    <td className="py-3.5 px-4 text-neutral-700">
-                      <span className="uppercase text-[10px] border border-neutral-200 bg-neutral-50 px-1.5 py-0.2 rounded mr-1.5">
+                    <td className="py-3.5 px-4 text-ink-soft">
+                      <span className="uppercase text-[10px] border border-hairline bg-canvas px-1.5 py-0.2 rounded mr-1.5">
                         {s.source_type}
                       </span>
-                      <span className="text-[11px] text-neutral-500">{s.region}</span>
+                      <span className="text-[11px] text-ink-soft">{s.region}</span>
                     </td>
 
                     {/* State */}
@@ -258,36 +258,36 @@ export default function SourcesView({ sources, onSelectSource }: SourcesViewProp
 
                     {/* CPU */}
                     <td className="py-3.5 px-4">
-                      <span className={s.metrics.cpu_pct && s.metrics.cpu_pct > 90 ? "text-rose-600 font-bold" : "text-neutral-900"}>
+                      <span className={s.metrics.cpu_pct && s.metrics.cpu_pct > 90 ? "text-rose-600 font-bold" : "text-ink"}>
                         {s.metrics.cpu_pct !== undefined ? `${s.metrics.cpu_pct}%` : "—"}
                       </span>
                     </td>
 
                     {/* Memory */}
-                    <td className="py-3.5 px-4 text-neutral-900">
+                    <td className="py-3.5 px-4 text-ink">
                       {s.metrics.mem_pct !== undefined ? `${s.metrics.mem_pct}%` : "—"}
                     </td>
 
                     {/* Latency */}
                     <td className="py-3.5 px-4">
-                      <span className={s.metrics.latency_ms && s.metrics.latency_ms > 100 ? "text-amber-700 font-bold" : "text-neutral-900"}>
+                      <span className={s.metrics.latency_ms && s.metrics.latency_ms > 100 ? "text-amber-700 font-bold" : "text-ink"}>
                         {s.metrics.latency_ms !== undefined ? `${s.metrics.latency_ms}ms` : "—"}
                       </span>
                     </td>
 
                     {/* Packet Loss */}
-                    <td className="py-3.5 px-4 text-neutral-800">
+                    <td className="py-3.5 px-4 text-ink">
                       {s.metrics.packet_loss_pct !== undefined ? `${s.metrics.packet_loss_pct}%` : "0.0%"}
                     </td>
 
                     {/* Heartbeat */}
-                    <td className="py-3.5 px-4 text-neutral-500 text-[11px]">
+                    <td className="py-3.5 px-4 text-ink-soft text-[11px]">
                       {s.last_heartbeat_utc.slice(11, 19)} UTC
                     </td>
 
                     {/* Click row view */}
                     <td className="py-3.5 px-4 text-right">
-                      <button className="text-xs font-semibold text-neutral-600 group-hover:text-neutral-900 transition flex items-center justify-end gap-1 w-full">
+                      <button className="text-xs font-semibold text-ink-soft group-hover:text-ink transition flex items-center justify-end gap-1 w-full">
                         <span>Inspect</span>
                         <ArrowRight className="w-3 h-3" />
                       </button>

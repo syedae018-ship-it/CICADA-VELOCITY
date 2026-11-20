@@ -12,20 +12,20 @@ export default function PrivacySideBySideView({
 }: PrivacySideBySideViewProps) {
   return (
     <div className="space-y-6 font-sans">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-neutral-200 gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-hairline gap-2">
         <div>
-          <h1 className="text-lg font-bold text-neutral-900 uppercase tracking-tight">
+          <h1 className="text-lg font-bold text-ink uppercase tracking-tight">
             Privacy Verification (Side-by-Side)
           </h1>
-          <p className="text-xs text-neutral-500">
+          <p className="text-xs text-ink-soft">
             Proves customer logs containing credentials remain in Tier 1; SaaS receives only safe metadata
           </p>
         </div>
         <div className="flex items-center gap-2 font-mono text-xs">
-          <span className="border border-neutral-200 bg-neutral-100 text-neutral-800 px-2.5 py-1 rounded">
+          <span className="border border-hairline bg-neutral-100 text-ink px-2.5 py-1 rounded">
             SECRETS IN SAAS: 0
           </span>
-          <span className="border border-neutral-200 bg-neutral-100 text-neutral-800 px-2.5 py-1 rounded">
+          <span className="border border-hairline bg-neutral-100 text-ink px-2.5 py-1 rounded">
             LOCAL REDACTION: 100%
           </span>
         </div>
@@ -34,10 +34,10 @@ export default function PrivacySideBySideView({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* LEFT COLUMN: Customer Site (Tier 1) */}
         <div className="space-y-3">
-          <div className="p-3 border border-neutral-200 bg-white rounded flex items-center justify-between text-xs shadow-xs">
+          <div className="p-3 border border-hairline bg-white rounded flex items-center justify-between text-xs shadow-xs">
             <div>
-              <span className="font-bold text-neutral-900 uppercase block">Customer Environment (Tier 1)</span>
-              <span className="text-[11px] font-mono text-neutral-500">Collector API · port 8001 (/local/raw)</span>
+              <span className="font-bold text-ink uppercase block">Customer Environment (Tier 1)</span>
+              <span className="text-[11px] font-mono text-ink-soft">Collector API · port 8001 (/local/raw)</span>
             </div>
             <span className="text-[10px] font-mono uppercase border border-rose-200 bg-rose-50 text-rose-800 px-2 py-0.5 rounded font-semibold">
               Raw Logs With Credentials
@@ -48,10 +48,10 @@ export default function PrivacySideBySideView({
             {rawRecords.map((item) => (
               <div
                 key={item.id}
-                className="border border-neutral-200 bg-white p-4 rounded-lg space-y-2.5 font-mono text-xs shadow-xs"
+                className="border border-hairline bg-white p-4 rounded-lg space-y-2.5 font-mono text-xs shadow-xs"
               >
-                <div className="flex items-center justify-between text-neutral-500 text-[11px]">
-                  <span className="font-bold text-neutral-900">{item.host} ({item.service})</span>
+                <div className="flex items-center justify-between text-ink-soft text-[11px]">
+                  <span className="font-bold text-ink">{item.host} ({item.service})</span>
                   <span>{item.ts}</span>
                 </div>
 
@@ -62,7 +62,7 @@ export default function PrivacySideBySideView({
                 )}
 
                 {/* Raw Message Box */}
-                <div className="p-3 border border-neutral-200 bg-neutral-50 rounded text-[11px] text-neutral-800 leading-relaxed break-all select-all">
+                <div className="p-3 border border-hairline bg-canvas rounded text-[11px] text-ink leading-relaxed break-all select-all">
                   {item.message ? (
                     item.has_secret && item.message.includes("password=hunter2") ? (
                       <span>
@@ -90,11 +90,11 @@ export default function PrivacySideBySideView({
                 </div>
 
                 {item.redacted_message && (
-                  <div className="p-2.5 border border-neutral-200 bg-neutral-50/60 rounded text-[11px] text-neutral-600">
-                    <span className="text-[10px] uppercase block text-neutral-500 mb-0.5">
+                  <div className="p-2.5 border border-hairline bg-canvas/60 rounded text-[11px] text-ink-soft">
+                    <span className="text-[10px] uppercase block text-ink-soft mb-0.5">
                       Local Redacted Form (stays local):
                     </span>
-                    <span className="text-neutral-900">{item.redacted_message}</span>
+                    <span className="text-ink">{item.redacted_message}</span>
                   </div>
                 )}
               </div>
@@ -104,12 +104,12 @@ export default function PrivacySideBySideView({
 
         {/* RIGHT COLUMN: SaaS Cloud (Tier 2) */}
         <div className="space-y-3">
-          <div className="p-3 border border-neutral-200 bg-white rounded flex items-center justify-between text-xs shadow-xs">
+          <div className="p-3 border border-hairline bg-white rounded flex items-center justify-between text-xs shadow-xs">
             <div>
-              <span className="font-bold text-neutral-900 uppercase block">SaaS Cloud Ingest (Tier 2)</span>
-              <span className="text-[11px] font-mono text-neutral-500">Supabase & FastAPI · port 8000</span>
+              <span className="font-bold text-ink uppercase block">SaaS Cloud Ingest (Tier 2)</span>
+              <span className="text-[11px] font-mono text-ink-soft">Supabase & FastAPI · port 8000</span>
             </div>
-            <span className="text-[10px] font-mono uppercase border border-neutral-200 bg-neutral-100 text-neutral-800 px-2 py-0.5 rounded font-semibold">
+            <span className="text-[10px] font-mono uppercase border border-hairline bg-neutral-100 text-ink px-2 py-0.5 rounded font-semibold">
               Metadata Only
             </span>
           </div>
@@ -118,17 +118,17 @@ export default function PrivacySideBySideView({
             {rawRecords.map((item) => (
               <div
                 key={`saas_${item.id}`}
-                className="border border-neutral-200 bg-white p-4 rounded-lg space-y-2.5 font-mono text-xs shadow-xs"
+                className="border border-hairline bg-white p-4 rounded-lg space-y-2.5 font-mono text-xs shadow-xs"
               >
                 <div className="flex items-center justify-between text-[11px]">
-                  <span className="font-bold text-neutral-900">Stored by SaaS: {item.service}</span>
-                  <span className="text-neutral-500">0 Secrets ✓</span>
+                  <span className="font-bold text-ink">Stored by SaaS: {item.service}</span>
+                  <span className="text-ink-soft">0 Secrets ✓</span>
                 </div>
 
-                <div className="p-3 border border-neutral-200 bg-neutral-50 rounded text-[11px] text-neutral-800 leading-relaxed select-all">
+                <div className="p-3 border border-hairline bg-canvas rounded text-[11px] text-ink leading-relaxed select-all">
                   {item.saas_ingested.metrics_sent && (
                     <div>
-                      <span className="text-[10px] text-neutral-500 uppercase block mb-1">
+                      <span className="text-[10px] text-ink-soft uppercase block mb-1">
                         Metrics Stored:
                       </span>
                       <pre>{JSON.stringify(item.saas_ingested.metrics_sent, null, 2)}</pre>
@@ -136,7 +136,7 @@ export default function PrivacySideBySideView({
                   )}
                   {item.saas_ingested.event_sent && (
                     <div className="mt-2">
-                      <span className="text-[10px] text-neutral-500 uppercase block mb-1">
+                      <span className="text-[10px] text-ink-soft uppercase block mb-1">
                         Event Summary Stored:
                       </span>
                       <pre>{JSON.stringify(item.saas_ingested.event_sent, null, 2)}</pre>
@@ -144,7 +144,7 @@ export default function PrivacySideBySideView({
                   )}
                 </div>
 
-                <div className="p-2 border border-neutral-200 bg-neutral-50 rounded text-[11px] text-neutral-600">
+                <div className="p-2 border border-hairline bg-canvas rounded text-[11px] text-ink-soft">
                   ✓ Verified: Raw payload text, credentials, and host IP discarded prior to egress.
                 </div>
               </div>

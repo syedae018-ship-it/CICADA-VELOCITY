@@ -1,23 +1,29 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  Plus,
+  Upload,
+  ArrowUpRight,
+  ShieldCheck,
   Server,
   Activity,
-  AlertTriangle,
-  CheckCircle2,
-  AlertCircle,
+  CalendarDays,
+  Play,
+  Pause,
+  Square,
   Sparkles,
-  Layers,
-  ArrowUpRight,
-  TrendingUp,
-  TrendingDown,
-  Wifi,
-  Cpu,
-  Clock,
-  ArrowRight,
+  Workflow,
+  Eye,
 } from "lucide-react";
-import { MonitoredSource, CollectorNode, Incident, Recommendation, DashboardTab, HealthState } from "@/types";
+import {
+  MonitoredSource,
+  CollectorNode,
+  Incident,
+  Recommendation,
+  DashboardTab,
+  HealthState,
+} from "@/types";
 
 interface OverviewViewProps {
   sources: MonitoredSource[];
@@ -28,6 +34,151 @@ interface OverviewViewProps {
   onSelectSource: (source: MonitoredSource) => void;
 }
 
+const WEEK = ["S", "M", "T", "W", "T", "F", "S"];
+
+const stateChip: Record<HealthState, string> = {
+  excellent: "bg-brand-50 text-brand-800 border border-brand-100",
+  good: "bg-brand-50 text-brand-800 border border-brand-100",
+  fair: "bg-amber-50 text-amber-800 border border-amber-100",
+  poor: "bg-rose-50 text-rose-800 border border-rose-100",
+};
+
+function KpiCard({
+  label,
+  value,
+  caption,
+  variant = "white",
+  onClick,
+}: {
+  label: string;
+  value: React.ReactNode;
+  caption: React.ReactNode;
+  variant?: "white" | "amber" | "rose";
+  onClick?: () => void;
+}) {
+  const skin =
+    variant === "rose"
+      ? "bg-rose-50/60 border-rose-100"
+      : variant === "amber"
+      ? "bg-amber-50/70 border-amber-100"
+      : "bg-surface border-hairline/0";
+  return (
+    <button
+      onClick={onClick}
+      className={`group text-left card border ${skin} p-5 flex flex-col justify-between min-h-[180px] hover:shadow-cardLg transition`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="text-[13px] font-semibold text-ink">{label}</div>
+        <span className="h-8 w-8 rounded-full border border-hairline flex items-center justify-center text-ink-soft group-hover:text-brand-700 group-hover:border-brand-200 transition">
+          <ArrowUpRight className="w-4 h-4" />
+        </span>
+      </div>
+      <div>
+        <div className="text-5xl font-bold tracking-tight text-ink">{value}</div>
+        <div className="mt-3 text-[11px] text-ink-soft flex items-center gap-2">
+          {caption}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function BadgeDelta({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-hairline text-[10px] font-semibold text-ink-soft bg-canvas/60">
+      {children}
+    </span>
+  );
+}
+
+/** Hatched pill bar used by the telemetry trend chart, matching the reference. */
+function HatchBar({ height, highlight, peak, label }: { height: number; highlight: boolean; peak: boolean; label: string }) {
+  const h = Math.max(14, Math.round(height));
+  return (
+    <div className="flex-1 flex flex-col items-center gap-2">
+      {peak && (
+        <div className="relative -mb-1">
+          <div className="text-[10px] font-semibold text-brand-800 bg-surface px-1.5 py-0.5 rounded-md border border-brand-100 shadow-sm">
+            {label}
+          </div>
+          <div className="absolute left-1/2 -translate-x-1/2 -bottom-1.5 h-1.5 w-1.5 rotate-45 bg-surface border-r border-b border-brand-100" />
+        </div>
+      )}
+      <div
+        aria-hidden
+        className={`w-full rounded-full ${highlight ? "bg-brand-500" : peak ? "bg-brand-700" : "hatch bg-transparent border border-hairline"}`}
+        style={{ height: `${h}px` }}
+      />
+    </div>
+  );
+}
+
+/** Semicircular gauge — progress indicator for the completed share. */
+function Semicircle({ completed, inProgress, pending }: { completed: number; inProgress: number; pending: number }) {
+  const total = Math.max(1, completed + inProgress + pending);
+  const pctCompleted = completed / total;
+  // Semicircle geometry
+  const R = 90;
+  const CX = 110;
+  const CY = 110;
+  const stroke = 22;
+  const half = Math.PI * R;
+  const completedLen = half * pctCompleted;
+  const inProgressLen = half * (inProgress / total);
+  return (
+    <div className="relative w-[220px] h-[130px] mx-auto">
+      <svg width="220" height="130" viewBox="0 0 220 130">
+        <defs>
+          <pattern id="hatchPending" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(135)">
+            <line x1="0" y1="0" x2="0" y2="7" stroke="#b8c0b0" strokeWidth="2" />
+          </pattern>
+        </defs>
+        {/* pending arc (hatched) */}
+        <path
+          d={`M ${CX - R} ${CY} A ${R} ${R} 0 0 1 ${CX + R} ${CY}`}
+          fill="none"
+          stroke="url(#hatchPending)"
+          strokeWidth={stroke}
+          strokeLinecap="round"
+        />
+        {/* in-progress arc (dark green) */}
+        {inProgress > 0 && (
+          <path
+            d={`M ${CX - R} ${CY} A ${R} ${R} 0 0 1 ${CX + R} ${CY}`}
+            fill="none"
+            stroke="var(--color-brand-800)"
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={`${completedLen + inProgressLen} ${half}`}
+          />
+        )}
+        {/* completed arc (brand green) */}
+        {completed > 0 && (
+          <path
+            d={`M ${CX - R} ${CY} A ${R} ${R} 0 0 1 ${CX + R} ${CY}`}
+            fill="none"
+            stroke="var(--color-brand-500)"
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={`${completedLen} ${half}`}
+          />
+        )}
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-end pb-1">
+        <div className="text-4xl font-bold text-ink leading-none">{Math.round(pctCompleted * 100)}%</div>
+        <div className="text-[11px] text-ink-soft mt-1">Excellent share</div>
+      </div>
+    </div>
+  );
+}
+
+function fmtDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return [h, m, s].map((n) => String(n).padStart(2, "0")).join(":");
+}
+
 export default function OverviewView({
   sources,
   collectors,
@@ -36,373 +187,425 @@ export default function OverviewView({
   onSelectTab,
   onSelectSource,
 }: OverviewViewProps) {
-  const [activeChartMetric, setActiveChartMetric] = useState<"cpu" | "memory" | "latency" | "network">("cpu");
+  // Live tracker: a stopwatch that only ticks when there is an open incident.
+  const [elapsed, setElapsed] = useState(0);
+  const [running, setRunning] = useState(true);
+  const startRef = useRef<number>(Date.now());
+  useEffect(() => {
+    if (!running) return;
+    const t = setInterval(() => setElapsed(Math.floor((Date.now() - startRef.current) / 1000)), 1000);
+    return () => clearInterval(t);
+  }, [running]);
 
+  // KPI counts
   const totalSources = sources.length;
   const onlineCollectors = collectors.filter((c) => c.status === "online").length;
   const offlineCollectors = collectors.filter((c) => c.status === "offline").length;
-  const excellentSystems = sources.filter((s) => s.state === "excellent").length;
+  const completedSources = sources.filter((s) => s.state === "excellent").length;
+  const fairSources = sources.filter((s) => s.state === "fair").length;
+  const poorSources = sources.filter((s) => s.state === "poor").length;
   const activeIncidents = incidents.filter((i) => i.status !== "resolved").length;
-  const criticalIncidents = incidents.filter((i) => i.severity === "critical").length;
+  const pendingReview = recommendations.filter((r) => r.status === "proposed").length;
 
-  const stateColors: Record<HealthState, { bg: string; text: string; border: string }> = {
-    excellent: { bg: "bg-neutral-100", text: "text-neutral-800", border: "border-neutral-200" },
-    good: { bg: "bg-neutral-100", text: "text-neutral-700", border: "border-neutral-200" },
-    fair: { bg: "bg-amber-50", text: "text-amber-800", border: "border-amber-300" },
-    poor: { bg: "bg-rose-50", text: "text-rose-800", border: "border-rose-300" },
+  // Telemetry trend: group all sources' history into 7 buckets ("week" visual)
+  const points = sources.flatMap((s) => s.history ?? []);
+  const sampleSize = Math.max(1, Math.ceil(points.length / 7));
+  const buckets = Array.from({ length: 7 }, (_, i) => {
+    const slice = points.slice(i * sampleSize, (i + 1) * sampleSize);
+    const vals = slice.map((p) => p.cpu).filter((n) => typeof n === "number" && n > 0);
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+  });
+  const bucketMax = Math.max(1, ...buckets);
+  const peakIdx = buckets.reduce((best, v, i, a) => (v > a[best] ? i : best), 0);
+  const peakPct = Math.round((buckets[peakIdx] / Math.max(1, bucketMax)) * 100);
+
+  // Nearest incident (used as a "reminder")
+  const nextIncident = incidents.find((i) => i.status !== "resolved") ?? incidents[0];
+  const nextIncidentTime = nextIncident
+    ? new Date(nextIncident.started_utc).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : null;
+
+  // Top sources list (team collaboration style)
+  const topSources = [...sources]
+    .sort((a, b) => (b.active_alerts_count ?? 0) - (a.active_alerts_count ?? 0))
+    .slice(0, 4);
+
+  const label = (s: MonitoredSource) => {
+    const [first, ...rest] = s.service.replace(/-/g, " ").split(" ");
+    return (first[0]?.toUpperCase() ?? "S") + (rest[0]?.[0]?.toUpperCase() ?? "V");
   };
-
-  // 6 Primary KPI Cards
-  const kpiCards = [
-    {
-      title: "Total Monitored Sources",
-      value: totalSources,
-      desc: "Active monitored workloads",
-      trend: "+2 this week",
-      trendUp: true,
-      icon: Layers,
-      tab: "sources" as DashboardTab,
-    },
-    {
-      title: "Online Collectors",
-      value: onlineCollectors,
-      desc: "Tier 1 perimeter nodes",
-      trend: "100% active",
-      trendUp: true,
-      icon: Server,
-      tab: "fleet" as DashboardTab,
-    },
-    {
-      title: "Offline Collectors",
-      value: offlineCollectors,
-      desc: "Unreachable instances",
-      trend: "0 dropped",
-      trendUp: false,
-      icon: Activity,
-      tab: "fleet" as DashboardTab,
-      highlightZero: true,
-    },
-    {
-      title: "Excellent Systems",
-      value: excellentSystems,
-      desc: "Sources below 60% load",
-      trend: "Optimal state",
-      trendUp: true,
-      icon: CheckCircle2,
-      tab: "sources" as DashboardTab,
-    },
-    {
-      title: "Active Incidents",
-      value: activeIncidents,
-      desc: "Correlated multi-signal alerts",
-      trend: activeIncidents > 0 ? "Requires review" : "Nominal",
-      trendUp: activeIncidents === 0,
-      icon: AlertTriangle,
-      tab: "incidents" as DashboardTab,
-      isWarning: activeIncidents > 0,
-    },
-    {
-      title: "Critical Incidents",
-      value: criticalIncidents,
-      desc: "P0 compute / SLA anomalies",
-      trend: criticalIncidents > 0 ? "Action recommended" : "0 Critical",
-      trendUp: criticalIncidents === 0,
-      icon: AlertCircle,
-      tab: "incidents" as DashboardTab,
-      isDanger: criticalIncidents > 0,
-    },
-  ];
-
-  // Aggregate time-series for chart: 6 buckets averaged across all sources' live history
-  // (falls back to the sample series when no live history is available yet)
-  const BUCKETS = 6;
-  const livePoints = sources.flatMap((s) => s.history ?? []);
-  const bucketize = (pick: (p: (typeof livePoints)[number]) => number | undefined) => {
-    const vals = livePoints.map(pick);
-    const size = Math.ceil(livePoints.length / BUCKETS);
-    return Array.from({ length: BUCKETS }, (_, i) => {
-      const chunk = vals.slice(i * size, (i + 1) * size).filter((v): v is number => typeof v === "number" && v > 0);
-      return chunk.length ? Math.round((chunk.reduce((x, y) => x + y, 0) / chunk.length) * 10) / 10 : 0;
-    });
-  };
-  const hasLive = livePoints.length >= BUCKETS;
-  const sortedTimes = [...livePoints].sort((x, y) => x.time.localeCompare(y.time));
-  if (hasLive) livePoints.sort((x, y) => x.time.localeCompare(y.time));
-  const timeBuckets = hasLive
-    ? Array.from({ length: BUCKETS }, (_, i) => {
-        const size = Math.ceil(sortedTimes.length / BUCKETS);
-        return (sortedTimes[Math.min((i + 1) * size, sortedTimes.length) - 1]?.time ?? "").slice(0, 5);
-      })
-    : ["09:00", "09:03", "09:06", "09:09", "09:12", "09:15"];
-  const avgCpuData = hasLive ? bucketize((p) => p.cpu) : [28.4, 29.8, 30.5, 33.2, 48.5, 52.8];
-  const avgMemData = hasLive ? bucketize((p) => p.memory) : [45.1, 45.4, 45.9, 47.1, 52.0, 56.4];
-  const avgLatencyData = hasLive ? bucketize((p) => p.latency) : [16.2, 16.5, 17.1, 18.0, 38.4, 62.1];
-  const avgNetworkData = hasLive ? bucketize((p) => p.network_mbps) : [190, 205, 218, 235, 275, 298];
-
-  const getChartValues = () => {
-    switch (activeChartMetric) {
-      case "cpu":
-        return { data: avgCpuData, unit: "%", label: "Average Cluster CPU Utilization", max: 100 };
-      case "memory":
-        return { data: avgMemData, unit: "%", label: "Average Cluster Memory Utilization", max: 100 };
-      case "latency":
-        return { data: avgLatencyData, unit: "ms", label: "Average Network Latency (Roundtrip)", max: 120 };
-      case "network":
-        return { data: avgNetworkData, unit: " Mbps", label: "Aggregated Network Throughput", max: 400 };
-    }
-  };
-
-  const chartMeta = getChartValues();
 
   return (
-    <div className="space-y-6 font-sans">
-      {/* 6 Enterprise KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
-        {kpiCards.map((card, i) => {
-          const Icon = card.icon;
-          return (
-            <div
-              key={i}
-              onClick={() => onSelectTab(card.tab)}
-              className={`p-4 rounded-lg border bg-white cursor-pointer hover:border-neutral-400 hover:shadow-xs transition flex flex-col justify-between ${
-                card.isDanger
-                  ? "border-rose-300 bg-rose-50/30"
-                  : card.isWarning
-                  ? "border-amber-300 bg-amber-50/20"
-                  : "border-neutral-200"
-              }`}
-            >
-              <div className="flex items-center justify-between text-neutral-500 mb-2">
-                <span className="text-[10px] font-mono uppercase tracking-wider font-semibold truncate">
-                  {card.title}
-                </span>
-                <Icon className={`w-3.5 h-3.5 shrink-0 ${card.isDanger ? "text-rose-600" : card.isWarning ? "text-amber-600" : "text-neutral-400"}`} />
-              </div>
-
-              <div>
-                <div className={`text-2xl font-light font-mono tracking-tight ${card.isDanger ? "text-rose-700 font-semibold" : card.isWarning ? "text-amber-800 font-semibold" : "text-neutral-900"}`}>
-                  {card.value}
-                </div>
-                <div className="text-[11px] text-neutral-500 mt-0.5 truncate">
-                  {card.desc}
-                </div>
-              </div>
-
-              <div className="mt-3 pt-2 border-t border-neutral-100 flex items-center justify-between text-[10px] font-mono text-neutral-500">
-                <span className={card.trendUp ? "text-neutral-700 font-semibold" : "text-neutral-600"}>
-                  {card.trend}
-                </span>
-                <ArrowRight className="w-3 h-3 text-neutral-400" />
-              </div>
-            </div>
-          );
-        })}
+    <div className="space-y-6">
+      {/* Page title row */}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-[40px] leading-[1.05] font-bold tracking-tight text-ink">
+            Dashboard
+          </h1>
+          <p className="text-sm text-ink-soft mt-2 max-w-xl">
+            Monitor telemetry, inspect incidents and accomplish approvals — privacy enforced by design.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => onSelectTab("incidents")}
+            className="btn-pill-primary"
+          >
+            <Plus className="w-4 h-4" />
+            New review
+          </button>
+          <button
+            onClick={() => onSelectTab("reports")}
+            className="btn-pill"
+          >
+            <Upload className="w-4 h-4" />
+            Export data
+          </button>
+        </div>
       </div>
 
-      {/* Interactive Infrastructure Health & Performance Chart */}
-      <div className="border border-neutral-200 bg-white rounded-lg p-5 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-100">
-          <div>
-            <h2 className="text-sm font-bold text-neutral-900 uppercase tracking-tight">
-              Cluster Performance & Telemetry Trends
-            </h2>
-            <p className="text-xs text-neutral-500">
-              Aggregated timeseries metrics emitted across customer collector fleet
-            </p>
+      {/* KPI row: 1 hero (dark green) + 3 white cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Hero: Total sources */}
+        <button
+          onClick={() => onSelectTab("sources")}
+          className="relative overflow-hidden text-left card border border-brand-900/40 bg-gradient-to-br from-brand-800 via-brand-700 to-brand-600 text-white p-5 min-h-[200px] flex flex-col justify-between hover:shadow-cardLg transition"
+        >
+          <div
+            aria-hidden
+            className="absolute -right-8 -top-8 h-36 w-36 rounded-full border border-white/15"
+          />
+          <div
+            aria-hidden
+            className="absolute -right-16 -bottom-14 h-48 w-48 rounded-full border border-white/10"
+          />
+          <div className="relative flex items-center justify-between">
+            <div className="text-[13px] font-semibold">Total sources</div>
+            <span className="h-8 w-8 rounded-full bg-white/15 flex items-center justify-center">
+              <ArrowUpRight className="w-4 h-4" />
+            </span>
           </div>
+          <div className="relative">
+            <div className="text-5xl font-bold tracking-tight text-brand-mint">
+              {totalSources}
+            </div>
+            <div className="mt-3 text-[11px] text-white/85 flex items-center gap-2">
+              <BadgeDelta>
+                <ArrowUpRight className="w-3 h-3" />
+                {completedSources}
+              </BadgeDelta>
+              Excellent this window
+            </div>
+          </div>
+        </button>
 
-          {/* Metric Switcher Tabs */}
-          <div className="flex p-0.5 border border-neutral-200 bg-neutral-50 rounded text-xs font-mono">
-            <button
-              onClick={() => setActiveChartMetric("cpu")}
-              className={`px-2.5 py-1 rounded transition ${
-                activeChartMetric === "cpu" ? "bg-white text-neutral-900 font-semibold shadow-2xs" : "text-neutral-600 hover:text-neutral-900"
-              }`}
-            >
-              CPU Load
-            </button>
-            <button
-              onClick={() => setActiveChartMetric("memory")}
-              className={`px-2.5 py-1 rounded transition ${
-                activeChartMetric === "memory" ? "bg-white text-neutral-900 font-semibold shadow-2xs" : "text-neutral-600 hover:text-neutral-900"
-              }`}
-            >
-              Memory
-            </button>
-            <button
-              onClick={() => setActiveChartMetric("latency")}
-              className={`px-2.5 py-1 rounded transition ${
-                activeChartMetric === "latency" ? "bg-white text-neutral-900 font-semibold shadow-2xs" : "text-neutral-600 hover:text-neutral-900"
-              }`}
-            >
-              Latency
-            </button>
-            <button
-              onClick={() => setActiveChartMetric("network")}
-              className={`px-2.5 py-1 rounded transition ${
-                activeChartMetric === "network" ? "bg-white text-neutral-900 font-semibold shadow-2xs" : "text-neutral-600 hover:text-neutral-900"
-              }`}
-            >
-              Throughput
-            </button>
+        <KpiCard
+          label="Resolved incidents"
+          value={incidents.length - activeIncidents}
+          caption={
+            <>
+              <BadgeDelta>
+                <ArrowUpRight className="w-3 h-3" />
+                {Math.max(0, incidents.length - activeIncidents)}
+              </BadgeDelta>
+              Closed since window start
+            </>
+          }
+          onClick={() => onSelectTab("incidents")}
+        />
+        <KpiCard
+          label="Open incidents"
+          value={activeIncidents}
+          caption={
+            <>
+              <BadgeDelta>
+                <ArrowUpRight className="w-3 h-3" />
+                {fairSources + poorSources}
+              </BadgeDelta>
+              Sources in fair / poor
+            </>
+          }
+          onClick={() => onSelectTab("incidents")}
+          variant={activeIncidents > 0 ? "amber" : "white"}
+        />
+        <KpiCard
+          label="Pending review"
+          value={pendingReview}
+          caption={
+            <>
+              <BadgeDelta>
+                <ArrowUpRight className="w-3 h-3" />
+                {recommendations.length}
+              </BadgeDelta>
+              Recommendations total
+            </>
+          }
+          onClick={() => onSelectTab("ai_insights")}
+          variant={pendingReview > 0 ? "rose" : "white"}
+        />
+      </div>
+
+      {/* Middle row: telemetry trend · next review · side list */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        {/* Telemetry trend (hatched pill bars, week axis) */}
+        <div className="lg:col-span-6 card p-5">
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-ink">Telemetry analytics</h2>
+              <p className="text-xs text-ink-soft mt-0.5">
+                Average CPU across monitored sources, by day of week
+              </p>
+            </div>
+            <div className="text-[11px] text-ink-soft">
+              Peak <span className="font-semibold text-ink">{Math.round(buckets[peakIdx])}%</span>
+            </div>
+          </div>
+          <div className="mt-6 h-44 flex items-end gap-5 px-1 pt-6">
+            {buckets.map((v, i) => (
+              <HatchBar
+                key={i}
+                height={(v / Math.max(1, bucketMax)) * 140}
+                highlight={i === peakIdx - 1}
+                peak={i === peakIdx}
+                label={`${peakPct}%`}
+              />
+            ))}
+          </div>
+          <div className="mt-2 flex items-end gap-5 px-1">
+            {WEEK.map((d, i) => (
+              <div key={i} className="flex-1 text-center text-[11px] text-ink-soft">
+                {d}
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Chart Visualization */}
-        <div className="space-y-1">
-          <div className="flex items-center justify-between text-xs font-mono text-neutral-500 mb-2">
-            <span>{chartMeta.label}</span>
-            <span>Current: <strong className="text-neutral-900">{chartMeta.data[chartMeta.data.length - 1]}{chartMeta.unit}</strong></span>
+        {/* Next review (reminder) */}
+        <div className="lg:col-span-3 card p-5 flex flex-col">
+          <h3 className="text-[13px] font-semibold text-ink">Next review</h3>
+          <div className="mt-4">
+            <div className="text-xl font-semibold text-ink leading-tight">
+              {nextIncident ? nextIncident.title : "No open incidents"}
+            </div>
+            <div className="mt-2 text-xs text-ink-soft flex items-center gap-2">
+              <CalendarDays className="w-3.5 h-3.5" />
+              {nextIncidentTime ? `Started ${nextIncidentTime} UTC` : "Normal operations"}
+            </div>
           </div>
+          <button
+            onClick={() => onSelectTab("incidents")}
+            className="btn-pill-primary mt-auto"
+          >
+            <ShieldCheck className="w-4 h-4" />
+            Open review
+          </button>
+        </div>
 
-          <div className="h-44 w-full flex items-end gap-3 pt-6 pb-2 px-2 border-b border-neutral-200 bg-neutral-50/50 rounded-t">
-            {chartMeta.data.map((val, idx) => {
-              const heightPct = Math.min((val / chartMeta.max) * 100, 100);
-              const isLatest = idx === chartMeta.data.length - 1;
-              return (
-                <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group">
-                  <span className="text-[10px] font-mono text-neutral-600 opacity-0 group-hover:opacity-100 transition">
-                    {val}{chartMeta.unit}
+        {/* Right stack: project-style list of key sources */}
+        <div className="lg:col-span-3 card p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-[13px] font-semibold text-ink">Sources</h3>
+            <button
+              onClick={() => onSelectTab("sources")}
+              className="text-[11px] font-semibold text-brand-800 inline-flex items-center gap-1 rounded-full border border-brand-100 px-2 py-1 hover:bg-brand-50"
+            >
+              <Plus className="w-3 h-3" />
+              View all
+            </button>
+          </div>
+          <ul className="mt-4 space-y-3.5">
+            {sources.slice(0, 4).map((s) => (
+              <li key={s.source_id}>
+                <button
+                  onClick={() => onSelectSource(s)}
+                  className="w-full flex items-center gap-3 text-left group"
+                >
+                  <span className="h-7 w-7 rounded-full bg-brand-50 border border-brand-100 flex items-center justify-center text-[10px] font-semibold text-brand-800">
+                    {label(s)}
                   </span>
-                  <div
-                    className={`w-full rounded-t transition-all ${
-                      isLatest && activeChartMetric === "cpu" && val > 50
-                        ? "bg-rose-600"
-                        : isLatest
-                        ? "bg-neutral-900"
-                        : "bg-neutral-300 group-hover:bg-neutral-400"
-                    }`}
-                    style={{ height: `${Math.max(heightPct, 4)}%` }}
-                  />
-                  <span className="text-[10px] font-mono text-neutral-500">{timeBuckets[idx]}</span>
-                </div>
-              );
-            })}
-          </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold text-ink truncate group-hover:text-brand-800">
+                      {s.service}
+                    </div>
+                    <div className="text-[11px] text-ink-soft">
+                      {s.region} · last seen{" "}
+                      {new Date(s.last_seen_utc).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </div>
+                  </div>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${stateChip[s.state]}`}>
+                    {s.state}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
 
-          <div className="flex items-center justify-between text-[11px] font-mono text-neutral-500 pt-1">
-            <span>{hasLive ? `${timeBuckets[0]} (window start)` : "09:00 UTC (Nominal)"}</span>
-            <span>{hasLive ? `${timeBuckets[BUCKETS - 1]} (latest)` : "09:15 UTC (Anomaly spike registered)"}</span>
+      {/* Bottom row: team collaboration list · incident status gauge · ingest tracker */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        {/* Team Collaboration style: top sources with status badges */}
+        <div className="lg:col-span-5 card p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-[13px] font-semibold text-ink">Signal collaboration</h3>
+            <button
+              onClick={() => onSelectTab("sources")}
+              className="text-[11px] font-semibold text-brand-800 inline-flex items-center gap-1 rounded-full border border-brand-100 px-2 py-1 hover:bg-brand-50"
+            >
+              <Plus className="w-3 h-3" />
+              Add view
+            </button>
+          </div>
+          <ul className="mt-5 space-y-5">
+            {topSources.length === 0 ? (
+              <li className="text-xs text-ink-soft text-center py-8">No sources yet.</li>
+            ) : (
+              topSources.map((s) => (
+                <li key={s.source_id} className="flex items-center gap-3">
+                  <span className="h-10 w-10 rounded-full bg-brand-50 border border-brand-100 flex items-center justify-center text-xs font-semibold text-brand-800">
+                    {label(s)}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-ink truncate">
+                      {s.service}
+                    </div>
+                    <div className="text-[11px] text-ink-soft truncate">
+                      Monitoring <span className="font-semibold text-ink">{s.source_type}</span> telemetry · {s.region}
+                    </div>
+                  </div>
+                  <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${stateChip[s.state]}`}>
+                    {s.state}
+                  </span>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+
+        {/* Incident status gauge */}
+        <div className="lg:col-span-4 card p-5">
+          <h3 className="text-[13px] font-semibold text-ink">Health distribution</h3>
+          <div className="mt-2">
+            <Semicircle
+              completed={completedSources}
+              inProgress={sources.filter((s) => s.state === "good").length}
+              pending={fairSources + poorSources}
+            />
+          </div>
+          <div className="mt-4 flex items-center justify-around text-[11px] font-medium text-ink-soft">
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-brand-500" />
+              Excellent
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-brand-800" />
+              Good
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full hatch bg-transparent border border-hairline" />
+              Fair / Poor
+            </div>
+          </div>
+        </div>
+
+        {/* Ingest tracker (dark-green card, mimics the Time Tracker tile) */}
+        <div className="lg:col-span-3 card p-5 text-white bg-gradient-to-br from-brand-900 via-brand-800 to-brand-700 relative overflow-hidden">
+          <div
+            aria-hidden
+            className="absolute -right-14 -top-14 h-48 w-48 rounded-full border border-white/10"
+          />
+          <div
+            aria-hidden
+            className="absolute -right-24 -bottom-16 h-56 w-56 rounded-full border border-white/10"
+          />
+          <h3 className="relative text-[13px] font-semibold">Ingest tracker</h3>
+          <div className="relative mt-4 text-[11px] text-white/80">
+            Live window since open
+          </div>
+          <div className="relative text-[52px] font-bold tracking-tight leading-none mt-1">
+            {fmtDuration(elapsed)}
+          </div>
+          <div className="relative mt-5 flex items-center gap-3">
+            <button
+              onClick={() => setRunning((v) => !v)}
+              className="h-10 w-10 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center transition"
+              aria-label={running ? "Pause tracker" : "Resume tracker"}
+            >
+              {running ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+            </button>
+            <button
+              onClick={() => {
+                setRunning(false);
+                setElapsed(0);
+                startRef.current = Date.now();
+              }}
+              className="h-10 w-10 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center transition"
+              aria-label="Reset tracker"
+            >
+              <Square className="w-4 h-4" />
+            </button>
+            <div className="ml-auto text-[11px] text-white/80 flex items-center gap-1.5">
+              <Server className="w-3.5 h-3.5" />
+              {onlineCollectors}/{onlineCollectors + offlineCollectors} online
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Grid: Recent Incidents & AI Insights Preview */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Recent Incidents (7 Cols) */}
-        <div className="lg:col-span-7 border border-neutral-200 bg-white rounded-lg p-5 shadow-xs space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
-            <div>
-              <h3 className="text-sm font-bold text-neutral-900 uppercase tracking-tight flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-600" />
-                Active Correlated Incidents
-              </h3>
-              <p className="text-xs text-neutral-500">AIOps multi-signal clustered incidents</p>
-            </div>
-            <button
-              onClick={() => onSelectTab("incidents")}
-              className="text-xs font-semibold text-neutral-900 hover:underline font-mono"
-            >
-              View All ({incidents.length}) &rarr;
-            </button>
+      {/* Quick links row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <button
+          onClick={() => onSelectTab("egress")}
+          className="card p-4 flex items-center gap-3 text-left hover:shadow-cardLg transition"
+        >
+          <span className="h-10 w-10 rounded-full bg-brand-50 border border-brand-100 flex items-center justify-center text-brand-800">
+            <ShieldCheck className="w-5 h-5" />
+          </span>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-ink">Egress proof</div>
+            <div className="text-[11px] text-ink-soft truncate">Byte-for-byte audit log</div>
           </div>
-
-          {incidents.length === 0 ? (
-            <div className="p-8 text-center text-xs text-neutral-400">Zero active incidents.</div>
-          ) : (
-            <div className="space-y-3">
-              {incidents.map((inc) => (
-                <div
-                  key={inc.incident_id}
-                  onClick={() => onSelectTab("incidents", inc.incident_id)}
-                  className="p-4 rounded-lg border border-neutral-200 hover:border-neutral-400 bg-neutral-50/50 hover:bg-neutral-50 cursor-pointer transition space-y-2"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="border border-rose-300 bg-rose-50 text-rose-800 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase">
-                        {inc.severity}
-                      </span>
-                      <h4 className="text-xs font-bold text-neutral-900 tracking-tight">
-                        {inc.title}
-                      </h4>
-                    </div>
-                    <span className="text-[10px] font-mono text-neutral-500 shrink-0">
-                      Duration: {inc.duration}
-                    </span>
-                  </div>
-
-                  <p className="text-xs text-neutral-700 leading-relaxed">
-                    {inc.likely_cause}
-                  </p>
-
-                  <div className="flex items-center justify-between text-[11px] font-mono text-neutral-500 pt-1">
-                    <span>{inc.alert_count} alerts · {inc.suppressed_duplicates} suppressed</span>
-                    <span className="font-semibold text-neutral-800">Review & Approve &rarr;</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* AI Insights & Prescriptive Recommendations (5 Cols) */}
-        <div className="lg:col-span-5 border border-neutral-200 bg-white rounded-lg p-5 shadow-xs space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
-            <div>
-              <h3 className="text-sm font-bold text-neutral-900 uppercase tracking-tight flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-blue-600" />
-                AI Insights & Prescriptions
-              </h3>
-              <p className="text-xs text-neutral-500">Autonomous recommendation engine</p>
-            </div>
-            <button
-              onClick={() => onSelectTab("ai_insights")}
-              className="text-xs font-semibold text-neutral-900 hover:underline font-mono"
-            >
-              Full Details &rarr;
-            </button>
+        </button>
+        <button
+          onClick={() => onSelectTab("privacy")}
+          className="card p-4 flex items-center gap-3 text-left hover:shadow-cardLg transition"
+        >
+          <span className="h-10 w-10 rounded-full bg-brand-50 border border-brand-100 flex items-center justify-center text-brand-800">
+            <Eye className="w-5 h-5" />
+          </span>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-ink">Privacy side-by-side</div>
+            <div className="text-[11px] text-ink-soft truncate">Raw vs what SaaS stored</div>
           </div>
-
-          {recommendations.length === 0 ? (
-            <div className="p-8 text-center text-xs text-neutral-400">No pending recommendations.</div>
-          ) : (
-            <div className="space-y-3">
-              {recommendations.map((rec) => (
-                <div
-                  key={rec.rec_id}
-                  className="p-4 rounded-lg border border-neutral-200 bg-neutral-50/50 space-y-3"
-                >
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-[10px] font-mono uppercase text-blue-700 font-bold border border-blue-200 bg-blue-50 px-1.5 py-0.2 rounded">
-                      Model Confidence: {Math.round(rec.confidence * 100)}%
-                    </span>
-                    <span className="text-[10px] font-mono uppercase text-neutral-500">
-                      {rec.status.replace("_", " ")}
-                    </span>
-                  </div>
-
-                  <p className="text-xs font-semibold text-neutral-900 leading-snug">
-                    {rec.action}
-                  </p>
-
-                  <div className="text-[11px] text-neutral-600 bg-white p-2.5 rounded border border-neutral-200 space-y-1">
-                    <span className="text-[10px] font-mono uppercase text-neutral-500 font-semibold block">
-                      Inferred Path:
-                    </span>
-                    <p className="line-clamp-2">{rec.reasoning_path[0]}</p>
-                  </div>
-
-                  <button
-                    onClick={() => onSelectTab("incidents")}
-                    className="w-full py-2 bg-neutral-900 text-white hover:bg-black text-xs font-bold uppercase rounded transition font-mono"
-                  >
-                    Action in Incidents Console &rarr;
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        </button>
+        <button
+          onClick={() => onSelectTab("reliability")}
+          className="card p-4 flex items-center gap-3 text-left hover:shadow-cardLg transition"
+        >
+          <span className="h-10 w-10 rounded-full bg-brand-50 border border-brand-100 flex items-center justify-center text-brand-800">
+            <Activity className="w-5 h-5" />
+          </span>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-ink">Reliability</div>
+            <div className="text-[11px] text-ink-soft truncate">p95 ingest · duplicates · gaps</div>
+          </div>
+        </button>
+        <button
+          onClick={() => onSelectTab("ai_insights")}
+          className="card p-4 flex items-center gap-3 text-left hover:shadow-cardLg transition"
+        >
+          <span className="h-10 w-10 rounded-full bg-brand-50 border border-brand-100 flex items-center justify-center text-brand-800">
+            <Workflow className="w-5 h-5" />
+          </span>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-ink">AI insights</div>
+            <div className="text-[11px] text-ink-soft truncate">Explainable recommendations</div>
+          </div>
+        </button>
       </div>
     </div>
   );

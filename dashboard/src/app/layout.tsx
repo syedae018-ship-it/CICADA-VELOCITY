@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono, Poppins } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-// Typography: Poppins for headings and key figures, Helvetica for body text, JetBrains Mono for data.
-const poppins = Poppins({
+// Inter: a geometric sans used across the whole product (body + headings + key figures).
+// JetBrains Mono: for data such as IDs, hashes and raw payloads.
+const inter = Inter({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-poppins",
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-inter",
   display: "swap",
 });
 const jetbrains = JetBrains_Mono({
@@ -28,8 +29,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${poppins.variable} ${jetbrains.variable}`}>
-      <body className="min-h-screen bg-white text-neutral-900 antialiased selection:bg-neutral-900 selection:text-white font-sans">
+    <html lang="en" className={`${inter.variable} ${jetbrains.variable}`}>
+      <body className="min-h-screen bg-canvas text-ink antialiased selection:bg-brand-600 selection:text-white font-sans">
         {children}
       </body>
     </html>
