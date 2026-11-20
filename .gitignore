@@ -34,3 +34,6 @@ npm-debug.log*
 
 # hand-off zips
 handoff/
+
+# per-collector data folders (second collector etc.)
+collector/data-*/
