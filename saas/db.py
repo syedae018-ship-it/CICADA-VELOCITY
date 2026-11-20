@@ -195,7 +195,19 @@ def connect(region: str) -> sqlite3.Connection:
     return conn
 
 
+def close_connections() -> None:
+    """Close all open regional database connections."""
+    global _connections
+    for conn in _connections.values():
+        try:
+            conn.close()
+        except Exception:
+            pass
+    _connections.clear()
+
+
 def init_schema() -> None:
+
     """Create all tables in all regional databases and seed default tenants/collectors."""
     now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     for region in config.REGIONS:

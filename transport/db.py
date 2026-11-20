@@ -17,6 +17,16 @@ _DB_PATH = Path("collector/data/collector.db")
 _conn: Optional[sqlite3.Connection] = None
 
 
+def close_conn() -> None:
+    global _conn
+    if _conn is not None:
+        try:
+            _conn.close()
+        except Exception:
+            pass
+        _conn = None
+
+
 def get_conn() -> sqlite3.Connection:
     global _conn
     if _conn is None:
