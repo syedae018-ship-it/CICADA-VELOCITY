@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   Lock,
   Mail,
@@ -17,6 +18,7 @@ import {
 type AuthMode = "signin" | "signup";
 
 export default function LoginForm() {
+  const router = useRouter();
   const [mode, setMode] = useState<AuthMode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -57,6 +59,9 @@ export default function LoginForm() {
             ? "Welcome back! Redirecting to your dashboard..."
             : "Account created successfully! Welcome aboard."
         );
+        setTimeout(() => {
+          router.push("/");
+        }, 800);
       }
     });
   };
