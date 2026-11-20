@@ -257,6 +257,42 @@ def tenant_query(tenant_id: str, sql: str, params: tuple | list = ()) -> list[di
         return [dict(r) for r in db_for_tenant(tenant_id).execute(sql, params).fetchall()]
 
 
+# ───────────────────────────── AIOps tables (written by Person C via upsert_row) ─────────────────────────────
+
+AIOPS_TABLES: dict[str, tuple[str, tuple[str, ...]]] = {   # table -> (primary key, columns)
+    "alerts": ("alert_id", ("alert_id", "tenant_id", "source_id", "service", "kind", "metric", "severity", "state",
+                            "event_time_utc", "created_at_utc", "incident_id", "explanation", "status")),
+    "incidents": ("incident_id", ("incident_id", "tenant_id", "title", "status", "severity", "started_utc", "updated_utc",
+                                  "alert_count", "suppressed_duplicates", "affected_sources", "likely_cause",
+                                  "correlation_rule")),
+    "recommendations": ("rec_id", ("rec_id", "tenant_id", "incident_id", "action", "reasoning_path", "contributing_signals",
+                                   "confidence", "risk", "policy_check", "rollback_plan", "requires_approval", "status",
+                                   "approved_by", "updated_utc")),
+}
+_JSON_COLUMNS = {"explanation", "affected_sources", "reasoning_path", "contributing_signals", "policy_check", "details"}
+
+
+def project_row(table: str, row: dict) -> dict:
+    """Keep only the columns the table has (engine objects carry extra UI fields) and fill required defaults."""
+    _, cols = AIOPS_TABLES[table]
+    out = {c: row.get(c) for c in cols if c in row}
+    now = now_utc()
+    if table == "alerts":
+        out.setdefault("created_at_utc", now)
+        out.setdefault("status", "open")
+        out["explanation"] = out.get("explanation") or {}
+    elif table == "incidents":
+        out.setdefault("started_utc", now)
+        out["updated_utc"] = out.get("updated_utc") or now
+        out["affected_sources"] = out.get("affected_sources") or []
+    elif table == "recommendations":
+        out["updated_utc"] = out.get("updated_utc") or now
+        out["reasoning_path"] = out.get("reasoning_path") or []
+        out["contributing_signals"] = out.get("contributing_signals") or []
+        out.setdefault("confidence", 0.0)
+    return out
+
+
 # ───────────────────────────── Store interface ─────────────────────────────
 
 class BaseStore:
@@ -279,6 +315,7 @@ class BaseStore:
     def insert_health(self, tenant_id: str, row: dict) -> None: ...
     def insert_audit(self, tenant_id: str, row: dict) -> None: ...
     def tenant_for_user(self, user_id: str) -> Optional[str]: ...
+    def upsert_row(self, table: str, row: dict) -> None: ...      # alerts / incidents / recommendations
 
 
 class SqliteStore(BaseStore):
@@ -390,6 +427,18 @@ class SqliteStore(BaseStore):
                                  VALUES (:tenant_id, :actor, :action, :target, :details, :at_utc)""",
                    {"tenant_id": tenant_id, **row, "details": json.dumps(row.get("details"))})
 
+    def upsert_row(self, table, row):
+        pk, _ = AIOPS_TABLES[table]
+        data = project_row(table, row)
+        data = {k: (json.dumps(v) if k in _JSON_COLUMNS and not isinstance(v, str) else v) for k, v in data.items()}
+        if isinstance(data.get("requires_approval"), bool):
+            data["requires_approval"] = int(data["requires_approval"])
+        cols = ", ".join(data)
+        marks = ", ".join(f":{k}" for k in data)
+        updates = ", ".join(f"{k} = excluded.{k}" for k in data if k != pk)
+        self._exec(data["tenant_id"], f"INSERT INTO {table} ({cols}) VALUES ({marks}) "
+                                      f"ON CONFLICT({pk}) DO UPDATE SET {updates}", data)
+
     def tenant_for_user(self, user_id):
         with _lock:
             for region in config.REGIONS:
@@ -482,6 +531,10 @@ class SupabaseStore(BaseStore):
 
     def insert_audit(self, tenant_id, row):
         self.t("audit_log").insert({"tenant_id": tenant_id, **row}).execute()
+
+    def upsert_row(self, table, row):
+        pk, _ = AIOPS_TABLES[table]
+        self.t(table).upsert(project_row(table, row), on_conflict=pk).execute()
 
     def tenant_for_user(self, user_id):
         d = self.t("tenant_members").select("tenant_id").eq("user_id", user_id).limit(1).execute().data

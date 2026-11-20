@@ -5,7 +5,10 @@ Run from repo root:  uvicorn collector.app:app --port 8001 --reload
 import time
 from contextlib import asynccontextmanager
 
+import os
+
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 import transport
 from collector import config
@@ -22,6 +25,13 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="Velocity Cicada Collector (Tier 1)", lifespan=lifespan)
+# Only the local dashboard may read this customer-side API from a browser (raw view, egress proof panel).
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[os.getenv("DASHBOARD_ORIGIN", "http://localhost:3000")],
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
 app.include_router(collector_router)
 app.include_router(transport_router)
 STARTED = time.time()

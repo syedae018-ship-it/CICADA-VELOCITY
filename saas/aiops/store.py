@@ -1,6 +1,31 @@
+import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from .health import aggregate_service_health
+
+logger = logging.getLogger(__name__)
+
+# Write-through persistence to the shared SaaS store (Supabase when configured, else SQLite).
+# Off by default so unit tests stay in-memory; engine.startup() switches it on in the running app.
+PERSIST_ENABLED = False
+
+
+def _persist(kind: str, tenant_id: str, row: Dict[str, Any]) -> None:
+    """Best effort: a storage outage must never break detection. The in-memory state stays authoritative."""
+    if not PERSIST_ENABLED:
+        return
+    try:
+        from saas.db import get_store
+        store = get_store()
+        if kind == "health":
+            store.insert_health(tenant_id, {k: row.get(k) for k in
+                                            ("entity_type", "entity_id", "prev_state", "state", "reason", "at_utc")})
+        elif kind == "audit":
+            store.insert_audit(tenant_id, {k: row.get(k) for k in ("actor", "action", "target", "details", "at_utc")})
+        else:
+            store.upsert_row(kind, row)
+    except Exception:
+        logger.exception("Persisting %s for %s failed", kind, tenant_id)
 
 class InMemoryStore:
     def __init__(self):
@@ -27,6 +52,11 @@ class InMemoryStore:
         """
         tenant_id = alert["tenant_id"]
         self.alerts.setdefault(tenant_id, []).append(alert)
+        _persist("alerts", tenant_id, alert)
+
+    def persist_alert(self, alert: Dict[str, Any]):
+        """Re-save an alert after correlation filled in its incident_id (persistence only, no duplicate in memory)."""
+        _persist("alerts", alert["tenant_id"], alert)
 
     def save_incident(self, incident: Dict[str, Any]):
         """
@@ -36,6 +66,7 @@ class InMemoryStore:
         # db_for_tenant(incident['tenant_id']).table('incidents').upsert(incident).execute()
         """
         tenant_id = incident["tenant_id"]
+        _persist("incidents", tenant_id, incident)
         incidents = self.incidents.setdefault(tenant_id, [])
         for i, existing in enumerate(incidents):
             if existing["incident_id"] == incident["incident_id"]:
@@ -51,6 +82,7 @@ class InMemoryStore:
         # db_for_tenant(rec['tenant_id']).table('recommendations').upsert(rec).execute()
         """
         tenant_id = rec["tenant_id"]
+        _persist("recommendations", tenant_id, rec)
         recs = self.recommendations.setdefault(tenant_id, [])
         for i, existing in enumerate(recs):
             if existing["rec_id"] == rec["rec_id"]:
@@ -66,6 +98,9 @@ class InMemoryStore:
         # db_for_tenant(tenant_id).table('health_history').insert(entry).execute()
         """
         self.health_history.setdefault(tenant_id, []).append(entry)
+        # Collector liveness history is written by ingest (Person B) from real heartbeats; avoid duplicates.
+        if entry.get("entity_type") != "collector":
+            _persist("health", tenant_id, entry)
 
     def save_audit_log(self, tenant_id: str, entry: Dict[str, Any]):
         """
@@ -75,6 +110,7 @@ class InMemoryStore:
         # db_for_tenant(tenant_id).table('audit_log').insert(entry).execute()
         """
         self.audit_log.setdefault(tenant_id, []).append(entry)
+        _persist("audit", tenant_id, entry)
 
     # ──────────────────────────────────────────────────────────────────────────
 

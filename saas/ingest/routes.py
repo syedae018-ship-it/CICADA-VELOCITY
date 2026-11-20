@@ -157,7 +157,7 @@ async def ingest_payload(
                         status_code=status.HTTP_200_OK, media_type="application/json")
 
     try:
-        on_ingest(tenant_id, payload)                                 # AIOps bugs must never drop stored data
+        await run_in_threadpool(on_ingest, tenant_id, payload)        # AIOps bugs must never drop stored data
     except Exception:
         logger.exception("AIOps hook on_ingest failed")
     return {"status": "accepted", "payload_id": payload["payload_id"]}

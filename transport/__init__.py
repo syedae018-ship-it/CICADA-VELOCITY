@@ -57,8 +57,9 @@ def submit(payload: dict) -> str:
     payload_id = payload.get("payload_id") or str(uuid.uuid4())
     payload["payload_id"] = payload_id
 
-    if "seq" not in payload or not payload["seq"]:
-        payload["seq"] = get_next_seq()
+    # Transport owns the sequence number: always use the persistent, restart-safe counter
+    # (the collector's own counter resets on restart and would create false gaps / repeats).
+    payload["seq"] = get_next_seq()
 
     if "sent_at_utc" not in payload or not payload["sent_at_utc"]:
         payload["sent_at_utc"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")

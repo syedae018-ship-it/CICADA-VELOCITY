@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import threading
 import uuid
 from collections import OrderedDict
 from datetime import datetime, timezone
@@ -34,7 +35,7 @@ logger = logging.getLogger(__name__)
 STALENESS_INTERVAL_S = 5
 _staleness_task = None
 
-def on_ingest(tenant_id: str, payload: Dict[str, Any]):
+def _on_ingest(tenant_id: str, payload: Dict[str, Any]):
     """
     Main hook called by SaaS Ingest for every accepted payload.
     Features:
@@ -100,6 +101,7 @@ def on_ingest(tenant_id: str, payload: Dict[str, Any]):
             incident, is_suppressed, recs = CORRELATOR.process_alert(alert)
             if incident:
                 STORE.add_incident(incident)
+                STORE.persist_alert(alert)
             for rec in recs:
                 STORE.add_recommendation(rec)
 
@@ -112,6 +114,7 @@ def on_ingest(tenant_id: str, payload: Dict[str, Any]):
             incident, is_suppressed, recs = CORRELATOR.process_alert(alert)
             if incident:
                 STORE.add_incident(incident)
+                STORE.persist_alert(alert)
             for rec in recs:
                 STORE.add_recommendation(rec)
 
@@ -185,22 +188,34 @@ def check_staleness_and_timeouts(tenant_id: str):
                 inc, _, recs = CORRELATOR.process_alert(offline_alert)
                 if inc:
                     STORE.add_incident(inc)
+                    STORE.persist_alert(offline_alert)
                 for r in recs:
                     STORE.add_recommendation(r)
 
 
+# The engine keeps in-memory state; ingest runs in a threadpool, so serialise all engine work.
+AIOPS_LOCK = threading.RLock()
+
+
+def on_ingest(tenant_id: str, payload: Dict[str, Any]):
+    """Called by SaaS ingest (Person B) for every accepted payload. Thread-safe."""
+    with AIOPS_LOCK:
+        _on_ingest(tenant_id, payload)
+
+
 def run_staleness_sweep() -> None:
     """Apply staleness / offline rules to every tenant the engine has seen."""
-    tenants = set(STORE.sources) | set(STORE.collectors)
-    for tenant_id in tenants:
-        check_staleness_and_timeouts(tenant_id)
+    with AIOPS_LOCK:
+        tenants = set(STORE.sources) | set(STORE.collectors)
+        for tenant_id in tenants:
+            check_staleness_and_timeouts(tenant_id)
 
 
 async def _staleness_loop() -> None:
     while True:
         try:
             await asyncio.sleep(STALENESS_INTERVAL_S)
-            run_staleness_sweep()
+            await asyncio.to_thread(run_staleness_sweep)
         except asyncio.CancelledError:
             break
         except Exception:
@@ -208,7 +223,9 @@ async def _staleness_loop() -> None:
 
 
 async def startup() -> None:
-    """Called once by saas/app.py: start the staleness / collector-offline timer."""
+    """Called once by saas/app.py: enable persistence and start the staleness / collector-offline timer."""
     global _staleness_task
+    from . import store as _store_mod
+    _store_mod.PERSIST_ENABLED = True
     if _staleness_task is None or _staleness_task.done():
         _staleness_task = asyncio.create_task(_staleness_loop())

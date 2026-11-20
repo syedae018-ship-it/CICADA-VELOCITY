@@ -1,29 +1,10 @@
 from fastapi import APIRouter, Depends, Header, HTTPException
 from typing import Optional
+from saas.ingest.auth import get_tenant  # shared: Supabase JWT, or demo-<tenant> when DEV_INSECURE=1
+
 from .store import STORE
 
 router = APIRouter(prefix="/api/v1", tags=["aiops"])
-
-def get_tenant(authorization: Optional[str] = Header(None)) -> str:
-    """
-    Enforce tenant isolation.
-    Accepts:
-      - 'Bearer demo-<tenant_id>'
-      - Direct Supabase JWT Bearer
-    """
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Missing Authorization header")
-    parts = authorization.split(" ")
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        raise HTTPException(status_code=401, detail="Invalid Authorization header format")
-
-    token = parts[1]
-    # Demo tokens only for known tenants in dev; anything else is rejected (never a default tenant).
-    # On integration this is replaced by the shared Supabase-JWT check in saas/ingest/auth.py.
-    from saas import config
-    if token.startswith("demo-") and token[5:] in config.TENANTS and getattr(config, "DEV_INSECURE", True):
-        return token[5:]
-    raise HTTPException(status_code=401, detail="Invalid or unknown token")
 
 @router.get("/overview")
 def get_overview(tenant_id: str = Depends(get_tenant)):
@@ -119,6 +100,7 @@ def approve_recommendation(rec_id: str, tenant_id: str = Depends(get_tenant)):
         raise HTTPException(status_code=403, detail=f"Policy check failed: {policy.get('policy')}")
 
     rec["status"] = "executed_simulated"
+    STORE.save_recommendation(rec)
     STORE.log_audit(
         tenant_id=tenant_id,
         actor=f"user@{tenant_id}",
@@ -143,6 +125,7 @@ def rollback_recommendation(rec_id: str, tenant_id: str = Depends(get_tenant)):
         raise HTTPException(status_code=400, detail=f"Cannot rollback recommendation in '{rec.get('status')}' status (must be executed_simulated)")
 
     rec["status"] = "rolled_back"
+    STORE.save_recommendation(rec)
     STORE.log_audit(
         tenant_id=tenant_id,
         actor=f"user@{tenant_id}",
