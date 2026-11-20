@@ -22,6 +22,7 @@ def clean_databases(tmp_path, monkeypatch):
     monkeypatch.setattr(tdb, "_DB_PATH", tmp_path / "collector.db")
     saas_db.set_store(None)
     ingest_routes._duplicates_count.clear()
+    ingest_routes._collector_status.clear()
 
     init_schema()
     init_collector_db()

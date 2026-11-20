@@ -240,6 +240,8 @@ def test_stale_sources_and_collector_outages():
         }],
         "events": []
     })
+    # Liveness is judged by arrival time, so simulate real silence: the collector was last heard from long ago
+    STORE.collectors[tenant_id]["c_stale_01"]["last_seen_utc"] = past_time_iso
 
     # Run check_staleness_and_timeouts
     check_staleness_and_timeouts(tenant_id)

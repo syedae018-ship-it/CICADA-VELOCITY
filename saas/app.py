@@ -34,4 +34,14 @@ app.include_router(aiops_router)
 
 @app.get("/api/v1/health")
 def health() -> dict:
-    return {"status": "ok", "service": "saas", "time_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")}
+    from saas.db import get_store
+    return {"status": "ok", "service": "saas", "storage": get_store().name,
+            "regions": config.REGIONS,
+            "time_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")}
+
+
+@app.get("/api/v1/config/thresholds")
+def thresholds() -> dict:
+    """The configurable health-state rules (contracts/health_thresholds.json), shown to operators."""
+    from saas.aiops.thresholds import load_thresholds
+    return load_thresholds()

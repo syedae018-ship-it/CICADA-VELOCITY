@@ -57,15 +57,9 @@ def _on_ingest(tenant_id: str, payload: Dict[str, Any]):
     collector_id = payload.get("collector_id", "c_unknown")
     sent_at_utc = payload.get("sent_at_utc", datetime.now(timezone.utc).isoformat())
 
-    # Update collector status as online and nominal
-    STORE.update_collector_status(
-        tenant_id=tenant_id,
-        collector_id=collector_id,
-        status="online",
-        state="excellent",
-        reason="heartbeat / payload received",
-        timestamp_utc=sent_at_utc
-    )
+    # Collector liveness uses ARRIVAL time: a buffered payload replayed after an outage carries an old
+    # sent_at_utc, but it proves the collector is alive now.
+    _mark_collector_alive(tenant_id, collector_id, "payload received")
 
     # Build source_id -> service lookup
     source_service_map = {}
@@ -195,6 +189,24 @@ def check_staleness_and_timeouts(tenant_id: str):
 
 # The engine keeps in-memory state; ingest runs in a threadpool, so serialise all engine work.
 AIOPS_LOCK = threading.RLock()
+
+
+def _mark_collector_alive(tenant_id: str, collector_id: str, reason: str) -> None:
+    prev = STORE.collectors.get(tenant_id, {}).get(collector_id, {})
+    STORE.update_collector_status(
+        tenant_id=tenant_id,
+        collector_id=collector_id,
+        status="online",
+        state="excellent",
+        reason=reason if prev.get("status") != "offline" else "collector reconnected",
+        timestamp_utc=datetime.now(timezone.utc).isoformat(),
+    )
+
+
+def on_heartbeat(tenant_id: str, collector_id: str) -> None:
+    """Called by ingest (Person B) for every authenticated heartbeat, even when no telemetry flows."""
+    with AIOPS_LOCK:
+        _mark_collector_alive(tenant_id, collector_id, "heartbeat received")
 
 
 def on_ingest(tenant_id: str, payload: Dict[str, Any]):

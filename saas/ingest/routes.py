@@ -21,7 +21,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, R
 from fastapi.concurrency import run_in_threadpool
 from jsonschema import Draft202012Validator
 
-from saas.aiops import on_ingest
+from saas.aiops import on_heartbeat, on_ingest
 from saas.db import DuplicatePayload, get_store, now_utc, parse_utc
 from saas.ingest.auth import get_tenant, verify_collector_auth
 
@@ -34,9 +34,11 @@ payload_validator = Draft202012Validator(json.loads((CONTRACTS_DIR / "payload_sc
 heartbeat_validator = Draft202012Validator(json.loads((CONTRACTS_DIR / "heartbeat_schema.json").read_text()))
 
 OFFLINE_AFTER_S = 60
+REPLAY_THRESHOLD_S = 30   # older than this on arrival = buffered during an outage and replayed
 HTTP_422 = 422
 
 _duplicates_count: dict[str, int] = {}   # tenant_id -> duplicates rejected since SaaS start
+_collector_status: dict[str, dict] = {}  # collector_id -> last known {status, state, last_seen_utc}; saves a read per payload
 _bg_task: Optional[asyncio.Task] = None
 
 
@@ -65,13 +67,16 @@ def _parse(raw_body: bytes, validator: Draft202012Validator) -> dict:
 def _mark_seen(tenant_id: str, collector_id: str, fields: dict) -> None:
     """Update collector liveness; record an 'online' transition in health history + audit."""
     store = get_store()
-    prev = store.get_collector(tenant_id, collector_id) or {}
+    prev = _collector_status.get(collector_id)
+    if prev is None:
+        prev = store.get_collector(tenant_id, collector_id) or {}
     now = fields["last_seen_utc"]
     came_back = prev.get("status") == "offline"
     update = {"status": "online", **fields}
     if came_back:
         update["state"] = "good"
     store.update_collector(tenant_id, collector_id, update)
+    _collector_status[collector_id] = {**prev, **update}
     if came_back:
         reason = "collector reconnected" if prev.get("last_seen_utc") else "collector first seen"
         store.insert_health(tenant_id, {"entity_type": "collector", "entity_id": collector_id,
@@ -187,6 +192,10 @@ async def heartbeat(
     except Exception:
         logger.exception("Heartbeat storage failed")
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Storage unavailable")
+    try:
+        await run_in_threadpool(on_heartbeat, collector["tenant_id"], x_collector_id)
+    except Exception:
+        logger.exception("AIOps heartbeat hook failed")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -222,8 +231,11 @@ def get_reliability(tenant_id: str = Depends(get_tenant)):
         seqs = store.received_seqs(tenant_id, c["collector_id"])
         seq_gaps[c["collector_id"]] = [m for a, b in zip(seqs, seqs[1:]) for m in range(a + 1, b)][:1000]
 
-    latencies = sorted(x for r in store.recent_metric_times(tenant_id)
-                       if (x := _seconds_between(r["received_at_utc"], r["event_time_utc"])) is not None)
+    all_lat = [x for r in store.recent_metric_times(tenant_id)
+               if (x := _seconds_between(r["received_at_utc"], r["event_time_utc"])) is not None]
+    # Data held in the outbox during an outage arrives late on purpose; the 10 s target is about live flow.
+    latencies = sorted(x for x in all_lat if x <= REPLAY_THRESHOLD_S)
+    replayed = [x for x in all_lat if x > REPLAY_THRESHOLD_S]
     p95 = round(latencies[min(int(len(latencies) * 0.95), len(latencies) - 1)], 3) if latencies else None
 
     last_alert = store.last_alert_times(tenant_id)
@@ -236,6 +248,8 @@ def get_reliability(tenant_id: str = Depends(get_tenant)):
         "latency_p95_s": p95,
         "alert_latency_s_last": round(alert_latency, 3) if alert_latency is not None else None,
         "sample_size": len(latencies),
+        "replayed_after_outage": len(replayed),
+        "max_replay_delay_s": round(max(replayed), 1) if replayed else 0,
     }
 
 
@@ -254,6 +268,7 @@ def check_offline_collectors(now: Optional[datetime] = None) -> list[str]:
         tid, cid = c["tenant_id"], c["collector_id"]
         reason = f"no heartbeat for {int(silent_s)}s"
         store.update_collector(tid, cid, {"status": "offline", "state": "poor"})
+        _collector_status[cid] = {**_collector_status.get(cid, {}), "status": "offline", "state": "poor"}
         store.insert_health(tid, {"entity_type": "collector", "entity_id": cid, "prev_state": c.get("state"),
                                   "state": "poor", "reason": reason, "at_utc": now_iso})
         store.insert_audit(tid, {"actor": "system", "action": "collector_offline", "target": cid,

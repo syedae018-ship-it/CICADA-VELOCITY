@@ -15,7 +15,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-_DB_PATH = Path("collector/data/collector.db")
+from collector.config import settings as _collector_settings
+
+_DB_PATH = _collector_settings.DB_PATH   # same SQLite file as the collector (outbox + egress log live next to raw data)
 _conn: Optional[sqlite3.Connection] = None
 _lock = threading.RLock()   # one connection is shared by the sender loop, heartbeat and API threads
 

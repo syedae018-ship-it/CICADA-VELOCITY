@@ -23,7 +23,8 @@ class CollectorConfig:
     VERSION: str = "1.0.0"
     PORT: int = int(os.getenv("COLLECTOR_PORT", "8001"))
     LOCAL_RETENTION_HOURS: int = int(os.getenv("LOCAL_RETENTION_HOURS", "24"))
-    DATA_DIR: Path = BASE_DIR / "collector" / "data"
+    # One data folder per collector process (run a second collector with COLLECTOR_DATA_DIR=collector/data-globex)
+    DATA_DIR: Path = Path(os.getenv("COLLECTOR_DATA_DIR", str(BASE_DIR / "collector" / "data"))).resolve()
     DB_PATH: Path = DATA_DIR / "collector.db"
     PENDING_PAYLOADS_PATH: Path = DATA_DIR / "pending_payloads.jsonl"
     RULES_PATH: Path = BASE_DIR / "contracts" / "redaction_rules.json"

@@ -10,11 +10,25 @@ NOISE_FLOORS = {
     "mem_pct": 2.0,
     "disk_pct": 1.0,
     "latency_ms": 5.0,
-    "packet_loss_pct": 0.2
+    "packet_loss_pct": 0.2,
+    "bandwidth_mbps": 25.0,   # throughput naturally swings ±5-10%: don't page on normal traffic variation
 }
 
 # Consecutive anomaly counter: (tenant_id, source_id, metric) -> int
 CONSECUTIVE_ANOMALIES: Dict[tuple, int] = {}
+
+def _with_baseline(expl: Dict[str, Any], baseline, z: float, source_id: str, metric: str) -> Dict[str, Any]:
+    """Attach what the engine has learned for this metric, so even a static-threshold alert is explainable."""
+    mean, std, n = baseline.stats()
+    if n:
+        expl["baseline"] = {"mean": round(mean, 2), "std": round(std, 2), "window_minutes": 15, "samples": n}
+        expl["z_score"] = round(z, 2)
+        if n >= baseline.min_samples:
+            expl["why"] += f" ({z:+.1f}σ vs its 15-min baseline {mean:.1f}±{std:.1f})"
+        expl["contributing_signals"] = [{"source_id": source_id, "metric": metric,
+                                         "deviation": f"{z:+.1f}σ", "weight": 1.0}]
+    return expl
+
 
 def evaluate_metrics_and_detect_alerts(tenant_id: str, source: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], str, str]:
     source_id = source.get("source_id", "unknown")
@@ -66,17 +80,19 @@ def evaluate_metrics_and_detect_alerts(tenant_id: str, source: Dict[str, Any]) -
         is_anom = baseline.is_anomalous(z, threshold_z=z_good)
 
         counter_key = (tenant_id, source_id, metric)
+        # Static threshold check
+        static_state, static_reason = evaluate_metric_state(metric, value)
+
         if is_anom:
             CONSECUTIVE_ANOMALIES[counter_key] = CONSECUTIVE_ANOMALIES.get(counter_key, 0) + 1
         else:
             CONSECUTIVE_ANOMALIES[counter_key] = 0
-            # Only add non-anomalous samples to baseline
-            baseline.add(event_time_utc, value)
+            # Learn only from normal samples: never from anomalies, and never from readings that already
+            # breach a static threshold (otherwise an incident during warm-up poisons the baseline).
+            if static_state in ("excellent", "good"):
+                baseline.add(event_time_utc, value)
 
         consecutive = CONSECUTIVE_ANOMALIES.get(counter_key, 0)
-
-        # Static threshold check
-        static_state, static_reason = evaluate_metric_state(metric, value)
         current_metric_state = static_state
         current_reason = static_reason
 
@@ -100,6 +116,11 @@ def evaluate_metrics_and_detect_alerts(tenant_id: str, source: Dict[str, Any]) -
                 current_reason = f"{metric} {value} is {z:+.1f}σ vs baseline ({mean:.1f}±{std:.1f})"
 
             why_text = f"{metric} {value} is {z:+.1f}σ above baseline (mean {mean:.1f}, σ {std:.1f})"
+            # 2-3σ only nudges the health state; an alert needs ≥ z_fair (3σ) sustained, or a static breach.
+            # This keeps normal variation from paging anyone (few false alarms).
+            if abs(z) < z_fair and static_state not in ("fair", "poor"):
+                metric_states_and_reasons.append((current_metric_state, current_reason))
+                continue
             alerts.append({
                 "alert_id": f"al_{uuid.uuid4().hex[:12]}",
                 "tenant_id": tenant_id,
@@ -143,12 +164,12 @@ def evaluate_metrics_and_detect_alerts(tenant_id: str, source: Dict[str, Any]) -
                 "event_time_utc": event_time_utc,
                 "created_at_utc": datetime.now(timezone.utc).isoformat(),
                 "incident_id": None,
-                "explanation": {
+                "explanation": _with_baseline({
                     "why": static_reason or f"{metric} breached threshold",
                     "observed": value,
                     "threshold_crossed": static_reason,
                     "confidence": 0.85
-                }
+                }, baseline, z, source_id, metric)
             })
 
         metric_states_and_reasons.append((current_metric_state, current_reason))

@@ -148,3 +148,17 @@ def get_health_history(entity_id: Optional[str] = None, tenant_id: str = Depends
 @router.get("/audit")
 def get_audit_log(tenant_id: str = Depends(get_tenant)):
     return STORE.audit_log.get(tenant_id, [])
+
+
+@router.get("/baselines")
+def get_baselines(tenant_id: str = Depends(get_tenant)):
+    """What the engine has learned per source/metric: rolling 15-min mean, std and sample count."""
+    from .baseline import BASELINES
+    out = []
+    for (t, source_id, metric), b in list(BASELINES.items()):
+        if t != tenant_id:
+            continue
+        mean, std, n = b.stats()
+        out.append({"source_id": source_id, "metric": metric, "mean": round(mean, 2), "std": round(std, 2),
+                    "samples": n, "ready": n >= b.min_samples, "min_samples": b.min_samples})
+    return sorted(out, key=lambda r: (r["source_id"], r["metric"]))

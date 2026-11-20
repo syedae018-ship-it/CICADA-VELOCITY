@@ -87,3 +87,22 @@ def test_duplicate_payload_does_not_reach_aiops_twice():
     n = len(STORE.alerts.get("t_acme", []))
     assert _send(client, d).json()["status"] == "duplicate"
     assert len(STORE.alerts.get("t_acme", [])) == n
+
+
+def test_replayed_backlog_does_not_flap_collector_offline():
+    """Buffered payloads carry an old sent_at_utc; liveness must use arrival time (no false offline alerts)."""
+    client = TestClient(saas_app)
+    old = datetime.now(timezone.utc) - timedelta(minutes=5)
+    for i in range(3):
+        assert _send(client, _payload("01_normal.json", i + 1, old + timedelta(seconds=5 * i))).status_code == 202
+    engine.run_staleness_sweep()
+    assert STORE.collectors["t_acme"]["c_blr01"]["status"] == "online"
+    assert not [a for a in STORE.alerts.get("t_acme", []) if a["kind"] == "offline"]
+
+
+def test_heartbeat_keeps_collector_alive_in_aiops():
+    client = TestClient(saas_app)
+    raw = (SAMPLES / "heartbeat.json").read_bytes()
+    h = {"X-Collector-Id": "c_blr01", "Content-Type": "application/json", **sign("dev-secret-c_blr01", raw)}
+    assert client.post("/api/v1/heartbeat", content=raw, headers=h).status_code == 204
+    assert STORE.collectors["t_acme"]["c_blr01"]["status"] == "online"

@@ -426,6 +426,7 @@ class SqliteStore(BaseStore):
 
     def last_alert_times(self, tenant_id):
         rows = tenant_query(tenant_id, """SELECT created_at_utc, event_time_utc FROM alerts WHERE tenant_id = ?
+                                          AND kind IN ('anomaly', 'threshold', 'security', 'event')
                                           ORDER BY created_at_utc DESC LIMIT 1""", (tenant_id,))
         return rows[0] if rows else None
 
@@ -538,6 +539,7 @@ class SupabaseStore(BaseStore):
 
     def last_alert_times(self, tenant_id):
         d = (self.t("alerts").select("created_at_utc,event_time_utc").eq("tenant_id", tenant_id)
+             .in_("kind", ["anomaly", "threshold", "security", "event"])
              .order("created_at_utc", desc=True).limit(1).execute().data)
         return d[0] if d else None
 

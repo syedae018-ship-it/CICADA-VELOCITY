@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 import transport
 from collector import config
+from collector import demo_driver
 from collector import routes as collector_routes
 from collector.routes import router as collector_router   # Person A's endpoints
 from transport.router import router as transport_router   # Person B's endpoints (pre-wired)
@@ -21,6 +22,7 @@ from transport.router import router as transport_router   # Person B's endpoints
 async def lifespan(_app: FastAPI):
     await collector_routes.startup()   # Person A: aggregation / retention background tasks
     await transport.startup()          # Person B: sender loop + heartbeat
+    await demo_driver.startup()        # live demo controls (DEMO_CONTROLS=1)
     yield
 
 
@@ -34,6 +36,7 @@ app.add_middleware(
 )
 app.include_router(collector_router)
 app.include_router(transport_router)
+app.include_router(demo_driver.router)
 STARTED = time.time()
 
 

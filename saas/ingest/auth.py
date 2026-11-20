@@ -5,7 +5,9 @@
                        `Bearer demo-<tenant_id>` is accepted ONLY when DEV_INSECURE=1 (local dev / tests).
 There is NO default tenant: a missing or invalid token is always 401. Tenant isolation depends on it.
 """
+import hashlib
 import logging
+import time
 from typing import Optional
 
 from fastapi import Header, HTTPException, status
@@ -39,7 +41,25 @@ def _unauthorized(reason: str) -> HTTPException:
                          headers={"WWW-Authenticate": "Bearer"})
 
 
+_TOKEN_CACHE: dict[str, tuple[float, str]] = {}   # sha256(token) -> (expires_at, user_id)
+_TOKEN_TTL_S = 60
+
+
 def _user_id_from_jwt(token: str) -> Optional[str]:
+    """Validated user id for a Supabase access token, cached for 60 s (the dashboard polls often)."""
+    key = hashlib.sha256(token.encode()).hexdigest()
+    hit = _TOKEN_CACHE.get(key)
+    if hit and hit[0] > time.time():
+        return hit[1]
+    user_id = _validate_jwt(token)
+    if user_id:
+        if len(_TOKEN_CACHE) > 1000:
+            _TOKEN_CACHE.clear()
+        _TOKEN_CACHE[key] = (time.time() + _TOKEN_TTL_S, user_id)
+    return user_id
+
+
+def _validate_jwt(token: str) -> Optional[str]:
     # 1. Legacy HS256 projects: verify locally with the JWT secret (fast, no network).
     if config.SUPABASE_JWT_SECRET:
         try:
