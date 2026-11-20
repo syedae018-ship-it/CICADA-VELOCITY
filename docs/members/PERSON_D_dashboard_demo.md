@@ -12,6 +12,30 @@ Every screen must be backed by **live** data.
 
 ---
 
+## ⚡ SUPABASE UPDATE (overrides data-fetching steps below)
+The dashboard talks to **Supabase directly** for reads, login and live updates. FastAPI is only for actions/computed data.
+
+**Setup:**
+```bash
+cd dashboard && npm install @supabase/supabase-js
+```
+`.env.local` (never commit): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (from Person B). **Never use the service-role key in the dashboard.**
+
+| Old | New |
+|---|---|
+| Tenant switcher with `demo-<tenant>` token | **Supabase Auth login** (`signInWithPassword`) on the existing `/login` page. Log in as `acme@demo.test` vs `globex@demo.test` to show isolation. |
+| `fetch(SAAS/api/v1/overview…)` | `supabase.from('collectors' / 'metrics' / 'alerts' / 'incidents' / 'recommendations' / 'health_history' / 'audit_log').select()`. RLS returns only your tenant's rows. |
+| SSE `/api/v1/stream` | `supabase.channel('live').on('postgres_changes', {event:'*', schema:'public', table:'alerts'}, cb).subscribe()` (also for incidents, collectors, health_history, metrics) |
+| Approve / Rollback | `fetch(SAAS/api/v1/recommendations/{id}/approve)` with header `Authorization: Bearer ${session.access_token}` |
+| Reliability page | `fetch(SAAS/api/v1/reliability)` with the same header |
+| Egress panel + raw view | **Unchanged**: collector API on port 8001 (local data never goes to Supabase) |
+
+Mocks still work: keep `USE_MOCKS=true` until Person B confirms the Supabase project is live.
+
+**Slide update:** architecture hop H4 = Supabase Realtime + RLS; H5 = FastAPI → Supabase (service role). Limitation: one Supabase project for the demo; production uses one per region.
+
+---
+
 ## 1. What you own / don't touch
 | ✅ You edit | ❌ You don't edit |
 |---|---|
@@ -21,7 +45,7 @@ Every screen must be backed by **live** data.
 ## 2. Your interfaces
 | Direction | What | Source |
 |---|---|---|
-| **IN** | SaaS read API + SSE (port 8000) | `contracts/api.md` §B (C: overview/alerts/incidents; B: collectors/metrics/reliability) |
+| **IN** | Supabase tables via supabase-js + Realtime (RLS); FastAPI (port 8000) for approve/rollback/reliability | `contracts/supabase/001_init.sql`, `contracts/api.md` §B |
 | **IN** | Collector local API (port 8001): raw view, egress panel, buffer | `contracts/api.md` §C (A: raw/detections; B: egress/buffer) |
 | **OUT** | Raw telemetry from `demo/simulator.py` → `POST /local/raw` | `contracts/raw_input.md` |
 

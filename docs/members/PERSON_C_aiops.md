@@ -12,6 +12,22 @@ Phase 3, and in Phase 4 **"Explainable AIOps recommendations (weighted higher)"*
 
 ---
 
+## ⚡ SUPABASE UPDATE (overrides storage/API steps below)
+SaaS data lives in **Supabase Postgres**. Person B creates the schema (`contracts/supabase/001_init.sql`) and `saas/db.py`.
+
+| Old | New |
+|---|---|
+| `store.py` writes to SQLite | Write `alerts`, `incidents`, `recommendations`, `health_history`, `audit_log` via B's `saas/db.py` client (service role). **Always set `tenant_id`.** |
+| Baselines in DB | Keep baselines **in memory** (fast). On startup, optionally warm them from the last 15 min of `metrics`. |
+| `/api/v1/stream` SSE | **Not needed.** Supabase Realtime pushes inserts/updates of your tables to the dashboard. |
+| `/overview`, `/alerts`, `/incidents`, `/health-history`, `/audit` | **Optional.** D reads tables directly with supabase-js + RLS. Make sure your rows contain everything D needs (e.g. `explanation` jsonb, `reasoning_path` jsonb). |
+| `demo-<tenant>` auth | Use B's `get_tenant()` (verifies the Supabase JWT) on your remaining endpoints |
+| Still yours in FastAPI | `POST /api/v1/recommendations/{id}/approve` and `/rollback` (policy check + audit + status update) |
+
+Write explanations exactly in the `contracts/aiops_output.md` shape into the `jsonb` columns, because the dashboard renders them as-is.
+
+---
+
 ## 1. What you own / don't touch
 | ✅ You edit | ❌ You don't edit |
 |---|---|

@@ -1,14 +1,22 @@
 # Database Tables
 
-SQLite for the hackathon (zero setup). Swappable for Postgres/TimescaleDB in production.
+| Tier | Database | Why |
+|---|---|---|
+| **Tier 2 SaaS** | **Supabase (Postgres)**, one project. Schema: [`supabase/001_init.sql`](supabase/001_init.sql) | Hosted, RLS tenant isolation, Realtime, Auth |
+| **Tier 1 Collector** | **Local SQLite**, never Supabase | Raw data must stay in the customer environment |
 
-## Tier 2: SaaS (`saas/data/<region>.db`)
+## Tier 2: SaaS on Supabase (exact SQL in `supabase/001_init.sql`)
 
-**Data residency:** one database file per region. A tenant's rows are written only to the DB of
-the tenant's home region. Nothing is replicated across regions.
+**Who writes:** only FastAPI (ingest = Person B, AIOps = Person C) using the **service-role key**
+(server-side `.env` only). Collectors never get Supabase keys.
 
-**Tenant isolation:** every table has `tenant_id`. Every query goes through a helper that adds
-`WHERE tenant_id = :tenant` taken from the auth token. No raw SQL without it.
+**Who reads:** the dashboard with the **anon key + Supabase Auth**. **Row Level Security** lets a
+user see only rows whose `tenant_id` is in `tenant_members` for that user, and the same applies to Realtime.
+
+**Data residency:** each tenant has a `home_region`. Hackathon: one Supabase project (state this as a
+limitation). Production: one Supabase project per region, and ingest routes each tenant to its region's project.
+
+Columns below are a summary; the SQL file is the source of truth.
 
 ```sql
 tenants(tenant_id PK, name, home_region, created_utc)

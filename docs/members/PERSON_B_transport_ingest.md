@@ -12,6 +12,31 @@ for the mandatory **egress proof panel**.
 
 ---
 
+## ⚡ SUPABASE UPDATE (overrides the SQLite storage steps in Phase B2/B4)
+The SaaS database is **Supabase Postgres** (one project). The **collector side (`transport/`) is unchanged**: outbox and egress log stay in local SQLite.
+
+**Do first (hour 0–2):**
+1. Create the Supabase project (region: Mumbai `ap-south-1`). Share the **URL + anon key** with Person D. Keep the **service-role key + JWT secret** in `.env` only, and share them privately with Person C.
+2. SQL Editor → run `contracts/supabase/001_init.sql` (tables, indexes, RLS, Realtime, seed tenants/collectors).
+3. Authentication → Users → create `acme@demo.test` and `globex@demo.test`, then insert their UUIDs into `tenant_members` (last lines of the SQL file).
+4. Smoke test: insert one row with the service key from Python, and confirm it shows in Table Editor.
+5. **If Supabase isn't working by hour 3, tell the team and fall back to SQLite.**
+
+**Replace in your plan:**
+| Old (SQLite) | New (Supabase) |
+|---|---|
+| `connect(region)`, `init_schema()` | `saas/db.py → client()` = `create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)`; schema already created by SQL |
+| `tenant_query()` | `tenant_table(tenant_id, table)` = `client().table(table)` with `.eq("tenant_id", tenant_id)` on every read. The service key bypasses RLS, so you must filter. |
+| Dedupe via `IntegrityError` | Insert into `received_payloads`; a unique-violation error (code `23505`) → return `200 duplicate` |
+| One insert per metric | **Batch insert** all metric rows of a payload in one call (keeps latency low) |
+| Residency = file per region | One project; `tenants.home_region` recorded; per-region projects = production slide |
+| `GET /api/v1/collectors`, `/metrics` | Optional: D reads these directly via supabase-js + RLS. Still build `/api/v1/reliability`. |
+| Tenant from `demo-<tenant>` token | Verify the **Supabase JWT** (`pyjwt` + `SUPABASE_JWT_SECRET`) → `sub` = user id → `tenant_members` → tenant. Write `get_tenant()` in `saas/ingest/auth.py` and share it with C. |
+
+**New judge answer:** "Tenant isolation is enforced twice: our API filters by tenant, and Postgres Row Level Security blocks any cross-tenant read, including Realtime."
+
+---
+
 ## 1. What you own / don't touch
 | ✅ You edit | ❌ You don't edit |
 |---|---|

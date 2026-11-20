@@ -4,3 +4,5 @@ httpx>=0.27
 pydantic>=2.7
 jsonschema>=4.22
 pytest>=8.0
+supabase>=2.6
+pyjwt>=2.8

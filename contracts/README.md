@@ -11,7 +11,8 @@ not against each other's code.
 | `redaction_rules.json` | Secret-scrubbing regexes | Collector |
 | `raw_input.md` | Internal raw record format (Tier 1 only) | Simulator/adapter → Collector |
 | `api.md` | All HTTP endpoints, auth, status codes | Everyone |
-| `db_tables.md` | SaaS + collector tables | Transport/Ingest, AIOps, Dashboard |
+| `db_tables.md` | SaaS (Supabase) + collector (SQLite) tables | Transport/Ingest, AIOps, Dashboard |
+| `supabase/001_init.sql` | Supabase schema, RLS, Realtime, seed | Person B runs it; C and D build on it |
 | `health_thresholds.json` | Excellent / Good / Fair / Poor rules | AIOps → Dashboard |
 | `aiops_output.md` | Alert / Incident / Recommendation JSON | AIOps → Dashboard |
 | `sample_payloads/` | Ready-made mock data | Everyone, for building before integration |

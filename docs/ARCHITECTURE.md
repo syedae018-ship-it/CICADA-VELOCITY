@@ -30,9 +30,9 @@ Secure, two-tier AIOps observability. **Raw data stays local; only allow-listed 
 │  │ re-validate schema (allow-list)      │──▶│ anomaly detection + health states  │                             │
 │  │ dedupe by payload_id                 │   │ correlation → incidents            │                             │
 │  │ store by event_time (out-of-order)   │   │ explainable recommendations        │                             │
-│  │ route to <region>.db (residency)     │   │ simulated remediation + audit      │                             │
+│  │ write to Supabase Postgres (svc key) │   │ simulated remediation + audit      │                             │
 │  │ offline detection (60 s)             │   └────────────────┬───────────────────┘                             │
-│  └──────────────────────────────────────┘                    │ (H4) REST + SSE /api/v1/*  (tenant from token)  │
+│  └──────────────────────────────────────┘                    │ (H5) svc key → Supabase Postgres (RLS, Realtime) │
 │                                                              ▼                                                 │
 │                                         dashboard/ (Next.js, port 3000)                                        │
 │                         fleet · health states · incidents · recommendations · reliability                     │
@@ -44,7 +44,8 @@ Secure, two-tier AIOps observability. **Raw data stays local; only allow-listed 
 | H1 | Stream → Collector | HTTP (localhost) | Inside the customer network |
 | H2 | Collector → Transport | In-process function call | Same process |
 | H3 | Transport → SaaS | HTTPS | HMAC-SHA256 collector auth, 300 s replay window, TLS |
-| H4 | SaaS → Dashboard | HTTPS REST + SSE | Bearer token → tenant_id, enforced in every query |
+| H4 | Supabase → Dashboard | HTTPS (supabase-js) + Realtime websockets | Supabase Auth JWT; **Row Level Security** limits rows to the user's tenant |
+| H5 | FastAPI → Supabase | HTTPS (supabase-py) | Service-role key, server-side only |
 
 ## Data flow (the judges' required order)
 **Collect → Filter/Redact → Aggregate → Analyze locally → Apply data policy → Transmit**
@@ -62,11 +63,11 @@ Secure, two-tier AIOps observability. **Raw data stays local; only allow-listed 
 
 ## Global-ready design
 - **Regional ingest:** each collector is configured with `REGION` + `SAAS_URL` for its region.
-- **Data residency:** SaaS writes each tenant only to `saas/data/<home_region>.db`.
+- **Data residency:** each tenant has a `home_region`. Hackathon: one Supabase project. Production: one Supabase project per region; ingest routes the tenant to its region.
 - **UTC everywhere** + `source_tz` per payload; the dashboard renders in the viewer's local time.
 - **Out-of-order:** ordered by event time. **Idempotency:** `payload_id` primary key.
 
 ## Scalability (production path, stated honestly)
-Hackathon: single process + SQLite. Production: ingest behind a load balancer → Kafka/NATS queue
-partitioned by tenant → stateless AIOps workers → TimescaleDB/ClickHouse per region; collectors
+Hackathon: FastAPI + Supabase Postgres (RLS + Realtime); collector on local SQLite. Production: ingest behind a load balancer → Kafka/NATS queue
+partitioned by tenant → stateless AIOps workers → Supabase/Postgres (+ TimescaleDB) per region; collectors
 scale horizontally because they share nothing.

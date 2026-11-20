@@ -23,7 +23,9 @@ Also: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (diagram, trust boundary, f
 [`docs/PLAN.md`](docs/PLAN.md) (priorities, timeline, the 8 live scenarios)
 
 ## Stack
-Python 3.11+ · FastAPI (collector + SaaS) · SQLite · Next.js + Tailwind (dashboard)
+Python 3.11+ · FastAPI (collector + SaaS ingest/AIOps) · **Supabase** Postgres + Auth + Realtime (SaaS data) · SQLite (collector, local only) · Next.js + Tailwind + supabase-js (dashboard)
+
+Supabase setup (Person B, first 2 hours): create the project, run `contracts/supabase/001_init.sql` in the SQL Editor, put the keys in `.env`.
 
 ## Run everything
 ```bash

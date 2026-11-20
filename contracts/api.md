@@ -45,25 +45,38 @@ SaaS marks a collector `poor/offline` when `now - last_seen > 60 s`.
 
 ---
 
-## B. Dashboard → SaaS (read API)
+## B. Dashboard → SaaS
 
-Dev auth: header `Authorization: Bearer demo-<tenant_id>` (e.g. `demo-t_acme`). The server derives `tenant_id` **only from the token** and adds `WHERE tenant_id = ?` to every query. Tenant B's token can never read tenant A's rows.
+**With Supabase, the dashboard reads most data directly from Supabase** using `supabase-js`
+(anon key + logged-in user). RLS enforces the tenant, and **Supabase Realtime** replaces the SSE stream.
+
+| Dashboard needs | Get it from |
+|---|---|
+| overview, collectors, metrics, alerts, incidents, recommendations, health history, audit | `supabase.from('<table>').select(...)`, auto-filtered by RLS |
+| live updates | `supabase.channel(...).on('postgres_changes', ...)` on `alerts`, `incidents`, `recommendations`, `health_history`, `collectors`, `metrics` |
+| approve / rollback a recommendation | **FastAPI** (writes need the service role + audit + policy check) |
+| reliability numbers (p95 latency, dupes, seq gaps) | **FastAPI** `GET /api/v1/reliability` (computed) |
+
+FastAPI endpoints that remain for the dashboard verify the **Supabase JWT** (`Authorization: Bearer <access_token>`),
+look up the user's tenant in `tenant_members`, and scope every query to it.
+
+The table below lists the FastAPI routes (the ones marked *optional* are covered by direct Supabase reads):
 
 | Method & path | Returns |
 |---|---|
 | `GET /api/v1/health` | `{"status":"ok","service":"saas","time_utc":...}` (no auth) |
-| `GET /api/v1/overview` | `{tenant_id, overall_state, collectors:{online,offline}, open_incidents, sources:[{source_id, service, source_type, state, reason, last_seen_utc}]}` |
-| `GET /api/v1/collectors` | `[{collector_id, region, version, status, state, last_seen_utc, buffer_depth, cpu_pct, mem_pct, config_hash}]` |
-| `GET /api/v1/metrics?source_id=&metric=&from=&to=` | `[{event_time_utc, value}]` ordered by **event time** |
-| `GET /api/v1/alerts?status=open` | `[Alert]` (see `aiops_output.md`) |
-| `GET /api/v1/incidents` | `[Incident]` |
-| `GET /api/v1/incidents/{id}` | `Incident` + its `alerts` + `recommendations` |
+| `GET /api/v1/overview` *(optional)* | `{tenant_id, overall_state, collectors:{online,offline}, open_incidents, sources:[{source_id, service, source_type, state, reason, last_seen_utc}]}` |
+| `GET /api/v1/collectors` *(optional)* | `[{collector_id, region, version, status, state, last_seen_utc, buffer_depth, cpu_pct, mem_pct, config_hash}]` |
+| `GET /api/v1/metrics?source_id=&metric=&from=&to=` *(optional)* | `[{event_time_utc, value}]` ordered by **event time** |
+| `GET /api/v1/alerts?status=open` *(optional)* | `[Alert]` (see `aiops_output.md`) |
+| `GET /api/v1/incidents` *(optional)* | `[Incident]` |
+| `GET /api/v1/incidents/{id}` *(optional)* | `Incident` + its `alerts` + `recommendations` |
 | `POST /api/v1/recommendations/{id}/approve` | Simulated remediation: policy check → approve → audit → `{status:"executed_simulated", rollback_plan}` |
 | `POST /api/v1/recommendations/{id}/rollback` | `{status:"rolled_back"}` + audit entry |
-| `GET /api/v1/health-history?entity_id=` | `[{at_utc, entity_type, entity_id, prev_state, state, reason}]` |
+| `GET /api/v1/health-history?entity_id=` *(optional)* | `[{at_utc, entity_type, entity_id, prev_state, state, reason}]` |
 | `GET /api/v1/reliability` | `{received_count, duplicates_rejected, seq_gaps, latency_p95_s, alert_latency_s_last}` |
-| `GET /api/v1/stream` | **SSE** stream of `{"type":"metric"|"alert"|"incident"|"state","data":{...}}` for live dashboard updates (< 10 s target) |
-| `GET /api/v1/audit` | `[{at_utc, actor, action, target, details}]` |
+| `GET /api/v1/stream` *(not needed: use Supabase Realtime)* | **SSE** stream of `{"type":"metric"|"alert"|"incident"|"state","data":{...}}` for live dashboard updates (< 10 s target) |
+| `GET /api/v1/audit` *(optional)* | `[{at_utc, actor, action, target, details}]` |
 
 ---
 

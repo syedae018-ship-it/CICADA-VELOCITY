@@ -37,6 +37,9 @@ Everything we build exists to answer that question **live**.
           raw data NEVER crosses this line ──────┘
 ```
 
+**Stack:** FastAPI (collector + SaaS logic) · **Supabase** Postgres/Auth/Realtime for SaaS data (RLS = tenant isolation) · local SQLite on the collector · Next.js dashboard with supabase-js.
+**Rule:** collectors never talk to Supabase. Only FastAPI writes to it.
+
 Full diagram: [`ARCHITECTURE.md`](ARCHITECTURE.md) · Priorities & scenarios: [`PLAN.md`](PLAN.md)
 
 ---
@@ -66,7 +69,7 @@ edit another person's file.
 | S2 | Payload handoff | collector (A) → transport (B) | `transport.submit(payload_dict)` + `payload_schema.json` | `transport/__init__.py` (stub writes to file) |
 | S3 | Over the wire | transport (B) → ingest (B) | `contracts/api.md` §A + HMAC | `transport/signing.py` |
 | S4 | Analysis hook | ingest (B) → aiops (C) | `on_ingest(tenant_id, payload)` | `saas/aiops/engine.py` |
-| S5 | Read API | SaaS (B + C) → dashboard (D) | `contracts/api.md` §B + `aiops_output.md` | routers in `saas/app.py` |
+| S5 | Read path | Supabase (B creates, C fills) → dashboard (D) | `contracts/supabase/001_init.sql` + `api.md` §B | supabase-js + RLS + Realtime |
 
 ---
 
