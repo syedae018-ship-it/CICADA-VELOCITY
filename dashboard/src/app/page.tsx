@@ -175,7 +175,7 @@ export default function DashboardPage() {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 px-4 lg:px-6 py-5 gap-5">
         <Header
           tenantId={tenantId}
           onTenantChange={(t) => {
@@ -205,7 +205,7 @@ export default function DashboardPage() {
           onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
         />
 
-        <main className="flex-1 px-3 lg:px-6 pt-4 pb-10 w-full max-w-[1440px] mx-auto">
+        <main className="flex-1 w-full max-w-[1480px] mx-auto">
           {currentTab === "overview" && (
             <OverviewView
               sources={sources}

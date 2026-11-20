@@ -1,52 +1,59 @@
 @import "tailwindcss";
 
 /* ──────────────────────────────── Design tokens ────────────────────────────────
-   Soft-grey canvas, large white rounded cards, a deep-green brand gradient, pill
-   buttons and chart elements. Also exposed as Tailwind utilities (bg-canvas, text-ink,
-   bg-brand-600, rounded-card, shadow-card, …) via @theme below.                 */
+   Premium Donezo-inspired system: warm off-white canvas, floating white cards with
+   generous radius, deep forest brand green with a bright mint accent. Everything
+   below is exposed as Tailwind utilities (bg-canvas, text-ink, bg-brand-700, …).  */
 
 @theme {
   --font-sans: var(--font-inter), "Helvetica Neue", Helvetica, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
   --font-display: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Surfaces */
-  --color-canvas: #f3f4f0;      /* page background */
-  --color-surface: #ffffff;     /* card background */
-  --color-surface-soft: #fafaf7; /* inset / second-level card */
-  --color-ink: #0f1a16;         /* primary text */
-  --color-ink-soft: #6b7265;    /* secondary text */
-  --color-hairline: #e5e7e0;    /* card border */
+  /* Surfaces — warm, slightly off-white page, true-white cards */
+  --color-canvas: #f4f5ef;        /* page background (soft, warm) */
+  --color-canvas-deep: #ecede6;   /* sidebar strip tint */
+  --color-surface: #ffffff;       /* card background */
+  --color-surface-soft: #f9faf6;  /* inset / second-level card */
+  --color-ink: #0b1210;           /* primary text (near-black with a green hint) */
+  --color-ink-soft: #5a6260;      /* secondary text */
+  --color-ink-muted: #8b928e;     /* tertiary text */
+  --color-hairline: #e2e5de;      /* card border */
+  --color-hairline-strong: #cfd3ca;
 
-  /* Brand (deep green → neon green ramp, like the reference) */
-  --color-brand-50: #eefaf0;
-  --color-brand-100: #d4f1d9;
-  --color-brand-200: #a8e2b4;
-  --color-brand-300: #6ec888;
-  --color-brand-400: #3eac63;
-  --color-brand-500: #1e8a47;
-  --color-brand-600: #137a3d;   /* primary */
-  --color-brand-700: #0e5f30;
-  --color-brand-800: #0a4523;
-  --color-brand-900: #063018;
-  --color-brand-950: #04210f;
-  --color-brand-mint: #c8f2a3;  /* bright accent used in the hero card */
+  /* Brand — deep forest ramp with a bright mint peak, matching the reference */
+  --color-brand-50:  #ecf5ea;
+  --color-brand-100: #d2e9ce;
+  --color-brand-200: #a3d1a1;
+  --color-brand-300: #6cb46f;
+  --color-brand-400: #3f9450;
+  --color-brand-500: #207a3d;
+  --color-brand-600: #176534;     /* primary button (hover) */
+  --color-brand-700: #104f2a;     /* primary button */
+  --color-brand-800: #0a3a1e;     /* hero/tracker */
+  --color-brand-900: #062715;     /* hero deepest */
+  --color-brand-950: #03180d;
+  --color-brand-mint: #bff09c;    /* bright accent numeral on the hero card */
+  --color-brand-chip: #e6f0d9;    /* pale mint pill background */
 
   /* Semantic */
-  --color-warn-50: #fef3c7;
-  --color-warn-700: #92400e;
-  --color-danger-50: #fee2e2;
-  --color-danger-700: #991b1b;
-  --color-info-50: #dbeafe;
-  --color-info-700: #1e40af;
+  --color-warn-50: #fff5df;
+  --color-warn-100: #fde9b2;
+  --color-warn-700: #8a5a07;
+  --color-danger-50: #ffe9e5;
+  --color-danger-100: #ffd3cc;
+  --color-danger-700: #a0321f;
 
   /* Shape */
-  --radius-card: 1.25rem;        /* 20px: the signature rounded card */
+  --radius-card: 1.5rem;          /* 24 px: signature rounded card */
+  --radius-cardLg: 2rem;           /* 32 px: outer page shell */
   --radius-pill: 9999px;
 
-  /* Shadow */
-  --shadow-card: 0 1px 2px rgba(15, 26, 22, 0.04), 0 1px 1px rgba(15, 26, 22, 0.02);
-  --shadow-cardLg: 0 8px 24px rgba(15, 26, 22, 0.06);
+  /* Shadow — soft, warm, premium */
+  --shadow-card: 0 1px 2px rgba(10, 30, 20, 0.04);
+  --shadow-cardMd: 0 4px 16px rgba(10, 30, 20, 0.06);
+  --shadow-cardLg: 0 16px 42px -14px rgba(10, 30, 20, 0.14), 0 4px 10px rgba(10, 30, 20, 0.04);
+  --shadow-hero: 0 20px 48px -18px rgba(6, 39, 21, 0.45);
 }
 
 /* ──────────────────────────────── Base ──────────────────────────────── */
@@ -59,11 +66,14 @@
     font-family: var(--font-sans);
     background-color: var(--color-canvas);
     color: var(--color-ink);
+    font-feature-settings: "ss01", "cv11";
   }
-  h1, h2, h3, h4 {
+  h1, h2, h3, h4, h5 {
     font-family: var(--font-display);
-    letter-spacing: -0.02em;
+    letter-spacing: -0.025em;
+    color: var(--color-ink);
   }
+  h1 { letter-spacing: -0.035em; }
 }
 
 /* ──────────────────────────────── Component shortcuts ──────────────────────────────── */
@@ -75,39 +85,65 @@
   box-shadow: var(--shadow-card);
 }
 
-/* Pill button (outline) */
+.card-hover {
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+}
+.card-hover:hover {
+  box-shadow: var(--shadow-cardMd);
+  transform: translateY(-1px);
+}
+
+/* Pill button (outline, dark forest text, hollow) — matches the "Import Data" button */
 .btn-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
   border-radius: var(--radius-pill);
-  padding: 0.65rem 1.1rem;
+  padding: 0.75rem 1.5rem;
   font-weight: 600;
-  font-size: 0.8rem;
-  border: 1px solid var(--color-brand-700);
+  font-size: 0.875rem;
+  letter-spacing: -0.01em;
+  border: 1.5px solid var(--color-brand-800);
   color: var(--color-brand-800);
-  background: var(--color-surface);
+  background: transparent;
   transition: background 0.15s, color 0.15s;
 }
 .btn-pill:hover { background: var(--color-brand-50); }
 
-/* Pill button (filled dark green) */
+/* Pill button (filled dark green) — matches the "+ Add Project" button */
 .btn-pill-primary {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
   border-radius: var(--radius-pill);
-  padding: 0.65rem 1.1rem;
+  padding: 0.75rem 1.5rem;
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: 0.875rem;
+  letter-spacing: -0.01em;
   color: #ffffff;
   background: var(--color-brand-700);
-  transition: background 0.15s;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+  transition: background 0.15s, box-shadow 0.15s;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.08) inset, 0 6px 14px -8px rgba(16, 79, 42, 0.5);
 }
-.btn-pill-primary:hover { background: var(--color-brand-800); }
+.btn-pill-primary:hover {
+  background: var(--color-brand-800);
+}
 
-/* Diagonal hatch pattern used by chart bars and gauge "empty" segments */
+/* Soft chip used for KPI deltas and secondary badges */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.5rem;
+  font-size: 10px;
+  font-weight: 600;
+  background: var(--color-brand-chip);
+  color: var(--color-brand-800);
+  border: 1px solid #d5e6b4;
+}
+
+/* Diagonal hatch patterns used by chart bars and gauge "empty" segments */
 .hatch {
   background-image: repeating-linear-gradient(
     135deg,
@@ -115,12 +151,27 @@
     transparent 2px 7px
   );
 }
+.hatch-tight {
+  background-image: repeating-linear-gradient(
+    135deg,
+    #a7b0a0 0 1.5px,
+    transparent 1.5px 5px
+  );
+}
 .hatch-green {
   background-image: repeating-linear-gradient(
     135deg,
-    rgba(19,122,61,0.35) 0 2px,
+    rgba(16,79,42,0.35) 0 2px,
     transparent 2px 7px
   );
+}
+
+/* Decorative rings for hero and tracker cards */
+.ring-deco {
+  position: absolute;
+  border-radius: 9999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  pointer-events: none;
 }
 
 /* Minimal scrollbar */
@@ -128,3 +179,6 @@
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #d6d8d0; border-radius: 999px; }
 ::-webkit-scrollbar-thumb:hover { background: #b4b7ab; }
+
+/* Lucide icon stroke tightening */
+.icon-sharp { stroke-width: 1.75; }
