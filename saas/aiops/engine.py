@@ -86,7 +86,8 @@ def _on_ingest(tenant_id: str, payload: Dict[str, Any]):
             source_type=source_type,
             state=state,
             reason=reason,
-            event_time_utc=event_time_utc
+            event_time_utc=event_time_utc,
+            collector_id=collector_id,
         )
 
         # Process alerts through correlation engine

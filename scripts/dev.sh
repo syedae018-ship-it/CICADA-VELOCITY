@@ -69,6 +69,12 @@ start "Collector Globex:$GLOBEX_PORT" collector-globex.log env \
   SOURCE_TZ=Europe/Berlin COLLECTOR_SECRET=dev-secret-c_fra01 COLLECTOR_DATA_DIR="$ROOT/collector/data-globex" \
   .venv/bin/uvicorn collector.app:app --host 127.0.0.1 --port "$GLOBEX_PORT"
 
+# Live test data: public Prometheus demo → signed payloads → firewall → SaaS (set PROM_BRIDGE=0 to skip)
+if [ "${PROM_BRIDGE:-1}" = 1 ]; then
+  start "Prometheus bridge (c_prom01)" prometheus-bridge.log env SAAS_URL="http://localhost:$SAAS_PORT" \
+    .venv/bin/python -m demo.prometheus_bridge
+fi
+
 if [ "$UI" = 1 ]; then
   export NEXT_PUBLIC_SAAS_URL="http://localhost:$SAAS_PORT"
   export NEXT_PUBLIC_COLLECTOR_URLS="t_acme=http://localhost:$ACME_PORT,t_globex=http://localhost:$GLOBEX_PORT"

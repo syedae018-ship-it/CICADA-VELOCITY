@@ -106,7 +106,7 @@ export default function TimelineView({ tenantId, events }: TimelineViewProps) {
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-[36px] font-bold tracking-[-0.03em] text-[#0b1210] leading-tight">
+            <h1 className="text-[36px] leading-[1.05] font-bold tracking-[-0.03em] text-ink">
               Activity Timeline
             </h1>
             <span className="chip text-[12px] font-medium bg-[#bff09c]/30 text-[#0a3a1e] border border-[#bff09c]">
@@ -121,7 +121,7 @@ export default function TimelineView({ tenantId, events }: TimelineViewProps) {
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-[#0b1210]/10 text-xs text-[#5a6260]">
             <span className="w-2 h-2 rounded-full bg-[#104f2a] animate-pulse" />
-            <span className="font-mono text-[#0b1210] font-semibold">{filtered.length}</span> of {events.length} Events
+            <span className="text-[#0b1210] font-semibold">{filtered.length}</span> of {events.length} Events
           </div>
         </div>
       </div>
@@ -130,28 +130,28 @@ export default function TimelineView({ tenantId, events }: TimelineViewProps) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="card p-4">
           <div className="text-xs text-[#5a6260] font-medium">Total Ingest Stream</div>
-          <div className="text-2xl font-bold text-[#0b1210] mt-1 font-mono">{stats.total}</div>
+          <div className="text-2xl font-bold tabular-nums text-[#0b1210] mt-1">{stats.total}</div>
           <div className="text-[11px] text-[#5a6260] mt-0.5">Audited events in log</div>
         </div>
         <div className="card p-4">
           <div className="text-xs text-rose-600 font-medium flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-rose-500" /> Critical Anomalies
           </div>
-          <div className="text-2xl font-bold text-rose-700 mt-1 font-mono">{stats.critical}</div>
+          <div className="text-2xl font-bold tabular-nums text-rose-700 mt-1">{stats.critical}</div>
           <div className="text-[11px] text-[#5a6260] mt-0.5">Automated triage triggers</div>
         </div>
         <div className="card p-4">
           <div className="text-xs text-amber-600 font-medium flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-amber-500" /> Warnings Flagged
           </div>
-          <div className="text-2xl font-bold text-amber-700 mt-1 font-mono">{stats.warning}</div>
+          <div className="text-2xl font-bold tabular-nums text-amber-700 mt-1">{stats.warning}</div>
           <div className="text-[11px] text-[#5a6260] mt-0.5">Degraded threshold alerts</div>
         </div>
         <div className="card p-4">
           <div className="text-xs text-[#104f2a] font-medium flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-[#104f2a]" /> Verified Egress
           </div>
-          <div className="text-2xl font-bold text-[#104f2a] mt-1 font-mono">{stats.egress}</div>
+          <div className="text-2xl font-bold tabular-nums text-[#104f2a] mt-1">{stats.egress}</div>
           <div className="text-[11px] text-[#5a6260] mt-0.5">HMAC-SHA256 signed payloads</div>
         </div>
       </div>

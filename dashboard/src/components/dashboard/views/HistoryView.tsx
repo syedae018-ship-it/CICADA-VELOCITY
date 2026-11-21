@@ -62,28 +62,28 @@ export default function HistoryView({ history }: HistoryViewProps) {
     switch (state) {
       case "excellent":
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-[#bff09c]/30 text-[#0a3a1e] border border-[#bff09c]">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-[#bff09c]/30 text-[#0a3a1e] border border-[#bff09c]">
             <span className="w-1.5 h-1.5 rounded-full bg-[#104f2a]" />
             EXCELLENT
           </span>
         );
       case "good":
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             GOOD
           </span>
         );
       case "fair":
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-amber-50 text-amber-800 border border-amber-200">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-50 text-amber-800 border border-amber-200">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
             FAIR
           </span>
         );
       case "poor":
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-rose-50 text-rose-800 border border-rose-200">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-rose-50 text-rose-800 border border-rose-200">
             <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
             POOR
           </span>
@@ -97,7 +97,7 @@ export default function HistoryView({ history }: HistoryViewProps) {
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-[36px] font-bold tracking-[-0.03em] text-[#0b1210] leading-tight">
+            <h1 className="text-[36px] leading-[1.05] font-bold tracking-[-0.03em] text-ink">
               State Transition History
             </h1>
             <span className="chip text-[12px] font-medium bg-[#bff09c]/30 text-[#0a3a1e] border border-[#bff09c]">
@@ -112,7 +112,7 @@ export default function HistoryView({ history }: HistoryViewProps) {
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-[#0b1210]/10 text-xs text-[#5a6260]">
             <History className="w-3.5 h-3.5 text-[#104f2a]" />
-            <span className="font-mono text-[#0b1210] font-semibold">{filtered.length}</span> of {history.length} Transitions
+            <span className="text-[#0b1210] font-semibold">{filtered.length}</span> of {history.length} Transitions
           </div>
         </div>
       </div>
@@ -121,28 +121,28 @@ export default function HistoryView({ history }: HistoryViewProps) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="card p-4">
           <div className="text-xs text-[#5a6260] font-medium">Logged Transitions</div>
-          <div className="text-2xl font-bold text-[#0b1210] mt-1 font-mono">{stats.total}</div>
+          <div className="text-2xl font-bold tabular-nums text-[#0b1210] mt-1">{stats.total}</div>
           <div className="text-[11px] text-[#5a6260] mt-0.5">Recorded across lifecycle</div>
         </div>
         <div className="card p-4">
           <div className="text-xs text-[#104f2a] font-medium flex items-center gap-1.5">
             <CheckCircle2 className="w-3.5 h-3.5" /> Healthy Recoveries
           </div>
-          <div className="text-2xl font-bold text-[#104f2a] mt-1 font-mono">{stats.recovered}</div>
+          <div className="text-2xl font-bold tabular-nums text-[#104f2a] mt-1">{stats.recovered}</div>
           <div className="text-[11px] text-[#5a6260] mt-0.5">Restored to Good / Excellent</div>
         </div>
         <div className="card p-4">
           <div className="text-xs text-amber-600 font-medium flex items-center gap-1.5">
             <AlertTriangle className="w-3.5 h-3.5" /> Degraded Events
           </div>
-          <div className="text-2xl font-bold text-amber-700 mt-1 font-mono">{stats.degraded}</div>
+          <div className="text-2xl font-bold tabular-nums text-amber-700 mt-1">{stats.degraded}</div>
           <div className="text-[11px] text-[#5a6260] mt-0.5">Fell to Fair or Poor status</div>
         </div>
         <div className="card p-4">
           <div className="text-xs text-[#5a6260] font-medium flex items-center gap-1.5">
             <Layers className="w-3.5 h-3.5" /> Distinct Entities
           </div>
-          <div className="text-2xl font-bold text-[#0b1210] mt-1 font-mono">{stats.uniqueEntities}</div>
+          <div className="text-2xl font-bold tabular-nums text-[#0b1210] mt-1">{stats.uniqueEntities}</div>
           <div className="text-[11px] text-[#5a6260] mt-0.5">Nodes, pods & endpoints</div>
         </div>
       </div>
@@ -152,7 +152,7 @@ export default function HistoryView({ history }: HistoryViewProps) {
         <div className="card p-5 space-y-3">
           <div className="flex items-center justify-between text-xs">
             <span className="font-semibold text-[#0b1210]">Historical State Distribution</span>
-            <span className="text-[#5a6260] font-mono">{stats.total} total observations</span>
+            <span className="text-[#5a6260]">{stats.total} total observations</span>
           </div>
 
           <div className="w-full h-3 rounded-full bg-neutral-100 overflow-hidden flex">
@@ -186,7 +186,7 @@ export default function HistoryView({ history }: HistoryViewProps) {
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-[#5a6260] pt-1">
+          <div className="flex flex-wrap items-center gap-4 text-xs text-[#5a6260] pt-1">
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-[#104f2a]" />
               <span>Excellent: {stats.counts.excellent} ({Math.round((stats.counts.excellent / stats.total) * 100 || 0)}%)</span>
@@ -250,7 +250,7 @@ export default function HistoryView({ history }: HistoryViewProps) {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs font-mono">
+            <table className="w-full text-left text-xs">
               <thead className="bg-[#f4f5ef]/80 border-b border-[#0b1210]/5 text-[#5a6260] text-[10px] uppercase tracking-wider">
                 <tr>
                   <th className="py-3.5 px-5 font-semibold">Monitored Entity</th>

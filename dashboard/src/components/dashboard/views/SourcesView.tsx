@@ -1,4 +1,5 @@
 "use client";
+import { PromTag, PROM_COLLECTOR_ID } from "@/components/dashboard/LiveFeedBanner";
 
 import React, { useMemo, useState } from "react";
 import {
@@ -199,7 +200,11 @@ export default function SourcesView({ sources, onSelectSource }: SourcesViewProp
                     </span>
                     <div className="min-w-0">
                       <div className="text-[16px] font-bold text-ink truncate">{s.service}</div>
-                      <div className="text-[11px] text-ink-muted mt-0.5 font-mono truncate">{s.source_id}</div>
+                      {s.collector_id === PROM_COLLECTOR_ID ? (
+                        <div className="mt-0.5"><PromTag /></div>
+                      ) : (
+                        <div className="text-[11px] text-ink-muted mt-0.5 font-mono truncate">{s.source_id}</div>
+                      )}
                     </div>
                   </div>
                   {/* Status chip */}

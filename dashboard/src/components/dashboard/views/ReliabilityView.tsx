@@ -74,10 +74,10 @@ export default function ReliabilityView({ metrics }: ReliabilityViewProps) {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="chip text-[11px] font-mono">
+          <span className="chip text-[11px]">
             <Clock className="w-3.5 h-3.5" /> SLA CEILING: 10.0s
           </span>
-          <span className={`chip text-[11px] font-mono ${slaCompliant ? "bg-brand-chip text-brand-800 border-[#d5e6b4]" : "bg-danger-50 text-danger-700 border-danger-100"}`}>
+          <span className={`chip text-[11px] ${slaCompliant ? "bg-brand-chip text-brand-800 border-[#d5e6b4]" : "bg-danger-50 text-danger-700 border-danger-100"}`}>
             ACTUAL: {metrics.latency_p95_s}s ({slaCompliant ? "COMPLIANT" : "BREACH"})
           </span>
         </div>
@@ -114,8 +114,8 @@ export default function ReliabilityView({ metrics }: ReliabilityViewProps) {
 
         <div className="flex items-center gap-3">
           <div className="px-4 py-2.5 rounded-xl bg-white border border-hairline text-right">
-            <div className="text-[10px] font-mono uppercase text-ink-muted">AIOps Detection Latency</div>
-            <div className="text-[16px] font-bold font-mono text-brand-800">{metrics.alert_latency_s_last}s</div>
+            <div className="text-[10px] uppercase text-ink-muted">AIOps Detection Latency</div>
+            <div className="text-[16px] font-bold tabular-nums text-brand-800">{metrics.alert_latency_s_last}s</div>
           </div>
         </div>
       </div>
@@ -131,7 +131,7 @@ export default function ReliabilityView({ metrics }: ReliabilityViewProps) {
             </span>
           </div>
           <div>
-            <div className="text-[44px] font-bold tracking-tight text-ink font-mono leading-none">
+            <div className="text-[44px] font-bold tabular-nums tracking-tight text-ink leading-none">
               {metrics.latency_p95_s}<span className="text-[20px] font-normal text-ink-muted ml-0.5">s</span>
             </div>
             <div className="mt-3 flex items-center gap-2">
@@ -152,7 +152,7 @@ export default function ReliabilityView({ metrics }: ReliabilityViewProps) {
             </span>
           </div>
           <div>
-            <div className="text-[44px] font-bold tracking-tight text-ink font-mono leading-none">
+            <div className="text-[44px] font-bold tabular-nums tracking-tight text-ink leading-none">
               {metrics.duplicates_rejected}
             </div>
             <div className="mt-3 flex items-center gap-2">
@@ -173,7 +173,7 @@ export default function ReliabilityView({ metrics }: ReliabilityViewProps) {
             </span>
           </div>
           <div>
-            <div className="text-[44px] font-bold tracking-tight text-ink font-mono leading-none">
+            <div className="text-[44px] font-bold tabular-nums tracking-tight text-ink leading-none">
               {metrics.seq_gaps || 0}
             </div>
             <div className="mt-3 flex items-center gap-2">
@@ -194,7 +194,7 @@ export default function ReliabilityView({ metrics }: ReliabilityViewProps) {
             </span>
           </div>
           <div>
-            <div className="text-[44px] font-bold tracking-tight text-ink font-mono leading-none">
+            <div className="text-[44px] font-bold tabular-nums tracking-tight text-ink leading-none">
               {metrics.received_count.toLocaleString()}
             </div>
             <div className="mt-3 flex items-center gap-2">
@@ -215,7 +215,7 @@ export default function ReliabilityView({ metrics }: ReliabilityViewProps) {
               <h2 className="text-[16px] font-bold text-ink">
                 Outage Buffer Depth Over Time (Local SQLite Outbox)
               </h2>
-              <span className="chip font-mono text-[10px]">Scenario #2 Verified</span>
+              <span className="chip text-[10px]">Scenario #2 Verified</span>
             </div>
             <p className="text-[12.5px] text-ink-soft mt-1">
               Proves zero data loss when SaaS is disconnected. Collector buffers payloads locally in SQLite, then drains oldest-first with backoff (1s, 2s, 4s, 8s, 15s) upon reconnection.
@@ -223,7 +223,7 @@ export default function ReliabilityView({ metrics }: ReliabilityViewProps) {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono font-semibold border ${
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${
               currentDepth > 0 ? "bg-warn-50 text-warn-700 border-warn-100" : "bg-brand-chip text-brand-800 border-[#d5e6b4]"
             }`}>
               {currentDepth > 0 ? (
@@ -243,7 +243,7 @@ export default function ReliabilityView({ metrics }: ReliabilityViewProps) {
 
         {/* Responsive SVG Chart with Area Gradient & Points */}
         <div className="relative w-full overflow-hidden rounded-xl bg-surface-soft p-4 border border-hairline">
-          <div className="flex items-center justify-between text-[11px] font-mono text-ink-muted mb-2 px-1">
+          <div className="flex items-center justify-between text-[11px] text-ink-muted mb-2 px-1">
             <span>Buffer Depth (items in outbox)</span>
             <span>Peak Depth: {peakDepth} payloads</span>
           </div>
@@ -285,7 +285,7 @@ export default function ReliabilityView({ metrics }: ReliabilityViewProps) {
                     x={pt.x}
                     y={Math.max(16, pt.y - 8)}
                     textAnchor="middle"
-                    className="text-[10px] font-mono fill-ink-soft font-semibold select-none"
+                    className="text-[10px] fill-ink-soft font-semibold select-none"
                   >
                     {pt.depth}
                   </text>
@@ -295,7 +295,7 @@ export default function ReliabilityView({ metrics }: ReliabilityViewProps) {
           </div>
 
           {/* Time axis labels */}
-          <div className="flex justify-between items-center text-[10px] font-mono text-ink-muted pt-2 border-t border-hairline mt-1">
+          <div className="flex justify-between items-center text-[10px] text-ink-muted pt-2 border-t border-hairline mt-1">
             <span>{history[0]?.time ?? "Start"}</span>
             <span className="text-brand-800 font-semibold">
               {peakDepth > 0
@@ -311,17 +311,17 @@ export default function ReliabilityView({ metrics }: ReliabilityViewProps) {
         {/* SLA Architecture Compliance Checklist */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
           <div className="p-4 rounded-xl border border-hairline bg-surface-soft">
-            <div className="text-[11px] font-mono font-bold uppercase text-ink-muted mb-1">Target 1: Wire Speed</div>
+            <div className="text-[11px] font-bold uppercase text-ink-muted mb-1">Target 1: Wire Speed</div>
             <div className="text-[13px] font-bold text-ink">P95 Delivery Under 10s</div>
             <p className="text-[11px] text-ink-soft mt-1">Measured from source event timestamp to SaaS receipt ({metrics.latency_p95_s}s actual).</p>
           </div>
           <div className="p-4 rounded-xl border border-hairline bg-surface-soft">
-            <div className="text-[11px] font-mono font-bold uppercase text-ink-muted mb-1">Target 2: Idempotency</div>
+            <div className="text-[11px] font-bold uppercase text-ink-muted mb-1">Target 2: Idempotency</div>
             <div className="text-[13px] font-bold text-ink">UUIDv4 Deduplication Key</div>
             <p className="text-[11px] text-ink-soft mt-1">Duplicate payloads acknowledge with HTTP 200 without double-counting metrics.</p>
           </div>
           <div className="p-4 rounded-xl border border-hairline bg-surface-soft">
-            <div className="text-[11px] font-mono font-bold uppercase text-ink-muted mb-1">Target 3: Chronology</div>
+            <div className="text-[11px] font-bold uppercase text-ink-muted mb-1">Target 3: Chronology</div>
             <div className="text-[13px] font-bold text-ink">Strict Event-Time Ordering</div>
             <p className="text-[11px] text-ink-soft mt-1">Late or out-of-order packets land in correct time order (Scenario #7).</p>
           </div>

@@ -154,11 +154,11 @@ export default function PrivacySideBySideView({ rawRecords }: PrivacySideBySideV
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-brand-500 animate-pulse" />
-            <h2 className="text-[12px] font-mono uppercase tracking-wider text-ink-muted">
+            <h2 className="text-[12px] uppercase tracking-wider text-ink-muted">
               Data Flow Pipeline & Trust Boundary
             </h2>
           </div>
-          <span className="text-[11px] font-mono text-ink-muted">
+          <span className="text-[11px] text-ink-muted">
             Hop H2 → Hop H3 Wire Inspection
           </span>
         </div>
@@ -167,7 +167,7 @@ export default function PrivacySideBySideView({ rawRecords }: PrivacySideBySideV
           {/* Step 1: Raw Ingest */}
           <div className="p-4 rounded-xl bg-surface-soft border border-hairline flex flex-col justify-between relative group hover:border-danger-200 transition">
             <div className="flex items-center justify-between text-ink-muted mb-2">
-              <span className="text-[10px] font-mono font-bold text-danger-700 bg-danger-50 px-2 py-0.5 rounded">
+              <span className="text-[10px] font-bold text-danger-700 bg-danger-50 px-2 py-0.5 rounded">
                 STAGE 1
               </span>
               <FileText className="w-4 h-4 text-ink-muted" />
@@ -176,7 +176,7 @@ export default function PrivacySideBySideView({ rawRecords }: PrivacySideBySideV
               <div className="text-[13px] font-bold text-ink">Raw Telemetry</div>
               <p className="text-[11px] text-ink-soft mt-0.5">Logs, metrics, auth attempts with plain passwords/tokens</p>
             </div>
-            <div className="mt-3 text-[10px] font-mono text-danger-700 flex items-center gap-1 font-semibold">
+            <div className="mt-3 text-[10px] text-danger-700 flex items-center gap-1 font-semibold">
               <AlertTriangle className="w-3 h-3" /> Unfiltered Customer Site
             </div>
           </div>
@@ -184,7 +184,7 @@ export default function PrivacySideBySideView({ rawRecords }: PrivacySideBySideV
           {/* Step 2: Local Redaction */}
           <div className="p-4 rounded-xl bg-surface-soft border border-hairline flex flex-col justify-between relative group hover:border-brand-200 transition">
             <div className="flex items-center justify-between text-ink-muted mb-2">
-              <span className="text-[10px] font-mono font-bold text-brand-800 bg-brand-50 px-2 py-0.5 rounded">
+              <span className="text-[10px] font-bold text-brand-800 bg-brand-50 px-2 py-0.5 rounded">
                 STAGE 2
               </span>
               <Lock className="w-4 h-4 text-brand-700" />
@@ -193,7 +193,7 @@ export default function PrivacySideBySideView({ rawRecords }: PrivacySideBySideV
               <div className="text-[13px] font-bold text-ink">Local Redaction</div>
               <p className="text-[11px] text-ink-soft mt-0.5">20+ regex patterns mask credentials to [REDACTED]</p>
             </div>
-            <div className="mt-3 text-[10px] font-mono text-brand-800 flex items-center gap-1 font-semibold">
+            <div className="mt-3 text-[10px] text-brand-800 flex items-center gap-1 font-semibold">
               <CheckCircle2 className="w-3 h-3 text-brand-600" /> In-Memory Masking
             </div>
           </div>
@@ -201,7 +201,7 @@ export default function PrivacySideBySideView({ rawRecords }: PrivacySideBySideV
           {/* Step 3: Allow-List Filter */}
           <div className="p-4 rounded-xl bg-surface-soft border border-hairline flex flex-col justify-between relative group hover:border-brand-200 transition">
             <div className="flex items-center justify-between text-ink-muted mb-2">
-              <span className="text-[10px] font-mono font-bold text-brand-800 bg-brand-50 px-2 py-0.5 rounded">
+              <span className="text-[10px] font-bold text-brand-800 bg-brand-50 px-2 py-0.5 rounded">
                 STAGE 3
               </span>
               <Filter className="w-4 h-4 text-brand-700" />
@@ -210,7 +210,7 @@ export default function PrivacySideBySideView({ rawRecords }: PrivacySideBySideV
               <div className="text-[13px] font-bold text-ink">Allow-List Engine</div>
               <p className="text-[11px] text-ink-soft mt-0.5">Strict JSON schema drops any field not explicitly permit-listed</p>
             </div>
-            <div className="mt-3 text-[10px] font-mono text-brand-800 flex items-center gap-1 font-semibold">
+            <div className="mt-3 text-[10px] text-brand-800 flex items-center gap-1 font-semibold">
               <CheckCircle2 className="w-3 h-3 text-brand-600" /> additionalProperties=false
             </div>
           </div>
@@ -218,7 +218,7 @@ export default function PrivacySideBySideView({ rawRecords }: PrivacySideBySideV
           {/* Step 4: HMAC Signing */}
           <div className="p-4 rounded-xl bg-brand-50/50 border border-brand-200 flex flex-col justify-between relative group">
             <div className="flex items-center justify-between text-ink-muted mb-2">
-              <span className="text-[10px] font-mono font-bold text-brand-800 bg-brand-chip px-2 py-0.5 rounded">
+              <span className="text-[10px] font-bold text-brand-800 bg-brand-chip px-2 py-0.5 rounded">
                 STAGE 4
               </span>
               <Fingerprint className="w-4 h-4 text-brand-800" />
@@ -227,7 +227,7 @@ export default function PrivacySideBySideView({ rawRecords }: PrivacySideBySideV
               <div className="text-[13px] font-bold text-brand-900">HMAC-SHA256 Wire</div>
               <p className="text-[11px] text-brand-800/80 mt-0.5">Payload signed with collector secret; 300s replay window</p>
             </div>
-            <div className="mt-3 text-[10px] font-mono text-brand-800 flex items-center gap-1 font-semibold">
+            <div className="mt-3 text-[10px] text-brand-800 flex items-center gap-1 font-semibold">
               <ShieldCheck className="w-3 h-3 text-brand-700" /> Trust Boundary Crossed
             </div>
           </div>
@@ -235,7 +235,7 @@ export default function PrivacySideBySideView({ rawRecords }: PrivacySideBySideV
           {/* Step 5: SaaS Cloud */}
           <div className="p-4 rounded-xl bg-brand-800 text-white flex flex-col justify-between relative shadow-sm">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-mono font-bold text-brand-900 bg-brand-mint px-2 py-0.5 rounded">
+              <span className="text-[10px] font-bold text-brand-900 bg-brand-mint px-2 py-0.5 rounded">
                 STAGE 5
               </span>
               <Database className="w-4 h-4 text-brand-mint" />
@@ -244,7 +244,7 @@ export default function PrivacySideBySideView({ rawRecords }: PrivacySideBySideV
               <div className="text-[13px] font-bold text-white">Tier 2 SaaS Cloud</div>
               <p className="text-[11px] text-white/75 mt-0.5">AIOps anomaly detection runs on numerical & event metadata</p>
             </div>
-            <div className="mt-3 text-[10px] font-mono text-brand-mint flex items-center gap-1 font-semibold">
+            <div className="mt-3 text-[10px] text-brand-mint flex items-center gap-1 font-semibold">
               <CheckCircle2 className="w-3 h-3" /> Zero Leaks Guaranteed
             </div>
           </div>
@@ -306,10 +306,10 @@ export default function PrivacySideBySideView({ rawRecords }: PrivacySideBySideV
           {/* Left: Stream selector list */}
           <div className="lg:col-span-4 space-y-3">
             <div className="flex items-center justify-between px-1">
-              <h3 className="text-[12px] font-mono uppercase tracking-wider text-ink-muted">
+              <h3 className="text-[12px] uppercase tracking-wider text-ink-muted">
                 Observed Ingest Stream
               </h3>
-              <span className="text-[11px] font-mono text-ink-muted">{list.length} sample lines</span>
+              <span className="text-[11px] text-ink-muted">{list.length} sample lines</span>
             </div>
 
             <div className="max-h-[640px] overflow-y-auto space-y-2.5 pr-1">
@@ -381,7 +381,7 @@ export default function PrivacySideBySideView({ rawRecords }: PrivacySideBySideV
                           <Unlock className="w-5 h-5 icon-sharp text-danger-700" />
                         </span>
                         <div>
-                          <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-danger-700">
+                          <div className="text-[11px] font-bold uppercase tracking-wider text-danger-700">
                             Tier 1 · Customer Site
                           </div>
                           <div className="text-[15px] font-bold text-ink">Raw Input (Stays Local)</div>
@@ -394,7 +394,7 @@ export default function PrivacySideBySideView({ rawRecords }: PrivacySideBySideV
                     </div>
 
                     <div className="mt-4">
-                      <div className="text-[11px] font-mono text-ink-muted mb-1.5 flex items-center justify-between">
+                      <div className="text-[11px] text-ink-muted mb-1.5 flex items-center justify-between">
                         <span>Original Log Message (In Memory)</span>
                         <span className="text-[10px] text-danger-700 font-bold">Unredacted Source</span>
                       </div>
@@ -404,7 +404,7 @@ export default function PrivacySideBySideView({ rawRecords }: PrivacySideBySideV
                     </div>
                   </div>
 
-                  <div className="mt-5 pt-3 border-t border-hairline flex items-center justify-between text-[11px] font-mono text-ink-soft">
+                  <div className="mt-5 pt-3 border-t border-hairline flex items-center justify-between text-[11px] text-ink-soft">
                     <span className="flex items-center gap-1.5 text-danger-700 font-semibold">
                       <Lock className="w-3.5 h-3.5" /> Purged locally after 24h
                     </span>
@@ -421,7 +421,7 @@ export default function PrivacySideBySideView({ rawRecords }: PrivacySideBySideV
                           <ShieldCheck className="w-5 h-5 icon-sharp text-brand-800" />
                         </span>
                         <div>
-                          <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-brand-800">
+                          <div className="text-[11px] font-bold uppercase tracking-wider text-brand-800">
                             Tier 2 · SaaS Cloud
                           </div>
                           <div className="text-[15px] font-bold text-ink">Transmitted Metadata</div>
@@ -434,9 +434,9 @@ export default function PrivacySideBySideView({ rawRecords }: PrivacySideBySideV
                     </div>
 
                     <div className="mt-4">
-                      <div className="text-[11px] font-mono text-ink-muted mb-1.5 flex items-center justify-between">
+                      <div className="text-[11px] text-ink-muted mb-1.5 flex items-center justify-between">
                         <span>Wire Ingest JSON (/api/v1/ingest)</span>
-                        <span className="text-[10px] text-brand-700 font-bold font-mono">0 Secrets Leaked</span>
+                        <span className="text-[10px] text-brand-700 font-bold">0 Secrets Leaked</span>
                       </div>
                       <pre className="max-h-[340px] overflow-auto px-4 py-3.5 rounded-xl bg-ink text-brand-mint text-[11.5px] font-mono leading-relaxed whitespace-pre-wrap border border-slate-800">
                         {selected.saas_ingested?.metrics_sent || selected.saas_ingested?.event_sent
@@ -450,7 +450,7 @@ export default function PrivacySideBySideView({ rawRecords }: PrivacySideBySideV
                     </div>
                   </div>
 
-                  <div className="mt-5 pt-3 border-t border-hairline flex items-center justify-between text-[11px] font-mono text-brand-800">
+                  <div className="mt-5 pt-3 border-t border-hairline flex items-center justify-between text-[11px] text-brand-800">
                     <span className="flex items-center gap-1.5 font-semibold">
                       <Fingerprint className="w-3.5 h-3.5" /> Salted HMAC-SHA256
                     </span>

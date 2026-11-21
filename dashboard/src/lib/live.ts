@@ -340,7 +340,7 @@ export async function fetchLiveSnapshot(tenantId: TenantId): Promise<LiveSnapsho
       is_stale: reason.toLowerCase().includes("stale") || reason.toLowerCase().includes("silent"),
       last_seen_utc: iso(s.last_seen_utc),
       last_heartbeat_utc: primaryCollector?.last_seen_utc ?? iso(s.last_seen_utc),
-      collector_id: primaryCollector?.collector_id ?? "",
+      collector_id: s.collector_id ?? primaryCollector?.collector_id ?? "",
       metrics: latest,
       history: Array.from(buckets.values()).slice(-60),
       active_alerts_count: alerts.filter(
@@ -485,6 +485,41 @@ export async function sendChatMessage(
   const body = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(body?.detail ?? `HTTP ${r.status}`);
   return body;
+}
+
+/** Streams the assistant's reply chunk by chunk (like ChatGPT). Returns the full text and model name. */
+export async function streamChatMessage(
+  tenantId: TenantId,
+  message: string,
+  history: ChatTurn[],
+  onText: (fullTextSoFar: string) => void,
+  signal?: AbortSignal
+): Promise<{ text: string; model: string }> {
+  const r = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    cache: "no-store",
+    signal,
+    body: JSON.stringify({ tenantId, message, history, stream: true }),
+  });
+  // Guardrail refusals and errors come back as JSON instead of a stream.
+  if ((r.headers.get("content-type") || "").includes("application/json")) {
+    const body = await r.json().catch(() => ({}));
+    const text = String(body.reply ?? `Something went wrong (HTTP ${r.status}).`);
+    onText(text);
+    return { text, model: String(body.model ?? "guardrail") };
+  }
+  if (!r.ok || !r.body) throw new Error(`HTTP ${r.status}`);
+  const reader = r.body.getReader();
+  const decoder = new TextDecoder();
+  let text = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    text += decoder.decode(value, { stream: true });
+    onText(text);
+  }
+  return { text, model: r.headers.get("X-Model") || "unknown" };
 }
 
 /** Ingest firewall (collector → receiver gate): rules, counters, recent decisions. Null when backend offline. */

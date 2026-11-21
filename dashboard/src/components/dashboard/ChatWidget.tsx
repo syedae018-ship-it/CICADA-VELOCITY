@@ -1,59 +1,27 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import {
-  Activity,
-  AlertTriangle,
-  Bot,
-  Maximize2,
-  MessageCircle,
-  Minimize2,
-  RotateCcw,
-  Send,
-  Server,
-  ShieldCheck,
-  Sparkles,
-  TrendingUp,
-  X,
-  Zap,
-} from "lucide-react";
-import { sendChatMessage, ChatTurn } from "@/lib/live";
+import { Maximize2, MessageCircle, Minimize2, RotateCcw, Send, Sparkles, X } from "lucide-react";
+import { streamChatMessage, ChatTurn } from "@/lib/live";
 import { TenantId } from "@/types";
-
-interface Card {
-  kind: "alert" | "incident" | "recommendation" | "metric" | "source" | "collector" | "info" | "stat";
-  title?: string;
-  subtitle?: string;
-  severity?: string;
-  value?: string | number;
-  unit?: string;
-  details?: string[];
-}
 
 interface Msg {
   role: "user" | "bot";
   text: string;
-  cards?: Card[];
   model?: string;
 }
 
-const CARD_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  alert: AlertTriangle,
-  incident: Zap,
-  recommendation: Sparkles,
-  metric: TrendingUp,
-  source: Server,
-  collector: ShieldCheck,
-  info: Bot,
-  stat: Activity,
-};
-
-const SUGGESTIONS = ["How's everything looking?", "Any open alerts?", "Are my collectors healthy?", "What should I fix first?"];
+const SUGGESTIONS = [
+  "How's everything running?",
+  "What's the Prometheus feed showing?",
+  "Explain the ingest firewall",
+  "What should I fix first?",
+];
 
 function greeting(tenantId: string): Msg {
   return {
     role: "bot",
-    text: `Hi! I'm your Cicada assistant. I can see live telemetry for **${tenantId}**. Ask me anything about alerts, incidents, collectors or metrics.`,
+    text: `Hey! I'm Cicada, your assistant for **${tenantId}**. I can see your live telemetry, so ask me anything — how things are running, why something broke, or what to do next.`,
   };
 }
 
@@ -115,35 +83,6 @@ function Markdown({ text }: { text: string }) {
   return <div className="space-y-2">{blocks}</div>;
 }
 
-function MiniCard({ card }: { card: Card }) {
-  const Icon = CARD_ICONS[card.kind] || Bot;
-  const tone =
-    card.severity === "critical" || card.severity === "high"
-      ? "text-danger-700 bg-danger-50"
-      : card.severity === "medium"
-        ? "text-warn-700 bg-warn-50"
-        : "text-brand-800 bg-brand-chip";
-  return (
-    <div className="flex items-start gap-2 rounded-xl border border-hairline bg-surface p-2">
-      <span className={`h-6 w-6 shrink-0 rounded-md flex items-center justify-center ${tone}`}>
-        <Icon className="w-3.5 h-3.5" />
-      </span>
-      <div className="min-w-0 text-[12px] leading-snug">
-        <div className="font-semibold text-ink truncate">
-          {card.title}
-          {card.value !== undefined && (
-            <span className="ml-1 font-mono">
-              {card.value}
-              {card.unit}
-            </span>
-          )}
-        </div>
-        {card.subtitle && <div className="text-ink-muted truncate">{card.subtitle}</div>}
-      </div>
-    </div>
-  );
-}
-
 export default function ChatWidget({ tenantId }: { tenantId: TenantId }) {
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -172,35 +111,33 @@ export default function ChatWidget({ tenantId }: { tenantId: TenantId }) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => abortRef.current?.abort(), []);
+
   const send = async (text: string) => {
     const q = text.trim();
     if (!q || sending) return;
     const history: ChatTurn[] = messages.slice(1).map(({ role, text }) => ({ role, text }));
-    setMessages((m) => [...m, { role: "user", text: q }]);
+    setMessages((m) => [...m, { role: "user", text: q }, { role: "bot", text: "" }]);
     setInput("");
     setSending(true);
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    const setLast = (patch: Partial<Msg>) =>
+      setMessages((m) => {
+        const copy = m.slice();
+        copy[copy.length - 1] = { ...copy[copy.length - 1], ...patch };
+        return copy;
+      });
     try {
-      const r = await sendChatMessage(tenantId, q, history);
-      setMessages((m) => [
-        ...m,
-        {
-          role: "bot",
-          text: String(r.reply ?? "Sorry, I didn't get anything back."),
-          cards: Array.isArray(r.cards)
-            ? (r.cards as Card[])
-                .filter((c, i, all) => all.findIndex((d) => d.title === c.title && d.subtitle === c.subtitle) === i)
-                .slice(0, 4)
-            : [],
-          model: r.model ? String(r.model) : undefined,
-        },
-      ]);
+      const { text: full, model } = await streamChatMessage(tenantId, q, history, (t) => setLast({ text: t }), ctrl.signal);
+      setLast({ text: full || "Sorry, I didn't get a reply back. Mind trying again?", model });
     } catch (e) {
-      setMessages((m) => [
-        ...m,
-        { role: "bot", text: `I couldn't reach the assistant just now (${(e as Error).message}). Try again in a moment.` },
-      ]);
+      if ((e as Error).name !== "AbortError")
+        setLast({ text: `I couldn't reach the assistant just now (${(e as Error).message}). Try again in a moment.` });
     } finally {
       setSending(false);
+      abortRef.current = null;
     }
   };
 
@@ -228,11 +165,14 @@ export default function ChatWidget({ tenantId }: { tenantId: TenantId }) {
               <div className="text-[14px] font-semibold leading-tight">Cicada Assistant</div>
               <div className="text-[11px] text-white/70 flex items-center gap-1.5">
                 <span className={`h-1.5 w-1.5 rounded-full ${isGemini || !lastModel ? "bg-brand-mint" : "bg-amber-300"}`} />
-                {lastModel ? (isGemini ? `Gemini · live ${tenantId}` : `Offline mode · ${tenantId}`) : `Live · ${tenantId}`}
+                {lastModel ? (isGemini ? `${lastModel} · live ${tenantId}` : `Offline mode · ${tenantId}`) : `Gemini · live ${tenantId}`}
               </div>
             </div>
             <button
-              onClick={() => setMessages([greeting(tenantId)])}
+              onClick={() => {
+                abortRef.current?.abort();
+                setMessages([greeting(tenantId)]);
+              }}
               title="New conversation"
               aria-label="New conversation"
               className="p-1.5 rounded-lg hover:bg-white/10"
@@ -253,11 +193,11 @@ export default function ChatWidget({ tenantId }: { tenantId: TenantId }) {
           </div>
 
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-4 space-y-3 bg-canvas">
-            {messages.map((m, i) => (
-              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[85%] space-y-2 ${m.role === "user" ? "items-end" : ""}`}>
+            {messages.map((m, i) =>
+              m.role === "bot" && !m.text ? null : (
+                <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div
-                    className={`px-3.5 py-2.5 text-[13.5px] leading-relaxed rounded-2xl ${
+                    className={`max-w-[85%] px-3.5 py-2.5 text-[13.5px] leading-relaxed rounded-2xl ${
                       m.role === "user"
                         ? "bg-brand-700 text-white rounded-br-md whitespace-pre-wrap"
                         : "bg-surface text-ink border border-hairline rounded-bl-md"
@@ -265,17 +205,10 @@ export default function ChatWidget({ tenantId }: { tenantId: TenantId }) {
                   >
                     {m.role === "user" ? m.text : <Markdown text={m.text} />}
                   </div>
-                  {m.cards && m.cards.length > 0 && (
-                    <div className="grid gap-1.5">
-                      {m.cards.map((c, j) => (
-                        <MiniCard key={j} card={c} />
-                      ))}
-                    </div>
-                  )}
                 </div>
-              </div>
-            ))}
-            {sending && (
+              )
+            )}
+            {sending && !messages[messages.length - 1]?.text && (
               <div className="flex justify-start">
                 <div className="px-4 py-3 rounded-2xl rounded-bl-md bg-surface border border-hairline flex gap-1">
                   {[0, 150, 300].map((d) => (

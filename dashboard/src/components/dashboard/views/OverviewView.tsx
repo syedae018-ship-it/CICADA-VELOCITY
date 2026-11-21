@@ -1,4 +1,5 @@
 "use client";
+import LiveFeedBanner from "@/components/dashboard/LiveFeedBanner";
 
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -280,6 +281,8 @@ export default function OverviewView({
           </button>
         </div>
       </div>
+
+      <LiveFeedBanner sources={sources} collectors={collectors} onOpen={() => onSelectTab("sources")} />
 
       {/* KPI row: 1 hero (dark forest) + 3 white cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">

@@ -163,7 +163,7 @@ class InMemoryStore:
             }
             self.save_health_history(tenant_id, entry)
 
-    def update_source_status(self, tenant_id: str, source_id: str, service: str, source_type: str, state: str, reason: str, event_time_utc: str):
+    def update_source_status(self, tenant_id: str, source_id: str, service: str, source_type: str, state: str, reason: str, event_time_utc: str, collector_id: str | None = None):
         tenant_sources = self.sources.setdefault(tenant_id, {})
         current = tenant_sources.get(source_id)
         prev_state = current.get("state", "excellent") if current else "excellent"
@@ -174,7 +174,8 @@ class InMemoryStore:
             "source_type": source_type,
             "state": state,
             "reason": reason,
-            "last_seen_utc": event_time_utc
+            "last_seen_utc": event_time_utc,
+            "collector_id": collector_id or (current or {}).get("collector_id"),
         }
 
         if prev_state != state:
