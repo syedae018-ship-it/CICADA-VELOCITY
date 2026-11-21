@@ -1,7 +1,7 @@
 ; ==============================================================================
 ; CICADA Local Collector — Inno Setup Installer Script
 ; ==============================================================================
-; Produces: CICADA-Local-Collector-Setup.exe
+; Produces: CICADA-Local-Collector-Setup-v<version>.exe (e.g. -v4.0.0)
 ; Features:
 ; - Standard Windows installation directory: {autopf}\CICADA Local Collector
 ; - Desktop & Start Menu shortcuts
@@ -22,7 +22,7 @@ AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=..\dist\installer
-OutputBaseFilename=CICADA-Local-Collector-Setup
+OutputBaseFilename=CICADA-Local-Collector-Setup-v{#MyAppVersion}
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern

@@ -57,7 +57,7 @@ Build the installer on Windows:
 ```powershell
 cd cicada-local-collector
 .\build_windows.ps1
-# produces dist\installer\CICADA-Local-Collector-Setup.exe
+# produces dist\installer\CICADA-Local-Collector-Setup-v<version>.exe
 ```
 
 See [`cicada-local-collector/README_WINDOWS.md`](cicada-local-collector/README_WINDOWS.md) for user-facing

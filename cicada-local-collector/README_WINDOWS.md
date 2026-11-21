@@ -9,7 +9,7 @@ A native Windows desktop application and standard setup installer for **CICADA L
 Customers do **not** need Python or command-line tools installed.
 
 ### Step 1: Install the Application
-1. Download `CICADA-Local-Collector-Setup.exe`.
+1. Download `CICADA-Local-Collector-Setup-v4.0.0.exe`.
 2. Double-click the installer.
 3. Accept the default destination folder:
    ```text
@@ -79,7 +79,7 @@ The script automatically:
 4. Compiles `installer\CICADA-Collector.iss` using Inno Setup compiler (`ISCC.exe`).
 5. Generates the final customer installer:
    ```text
-   dist\installer\CICADA-Local-Collector-Setup.exe
+   dist\installer\CICADA-Local-Collector-Setup-v4.0.0.exe
    ```
 
 ---

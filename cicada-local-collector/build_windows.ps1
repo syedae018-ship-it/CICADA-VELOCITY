@@ -81,6 +81,8 @@ foreach ($candidate in $IsccCandidates) {
 if ($IsccPath) {
     Write-Host "Found Inno Setup Compiler at: $IsccPath" -ForegroundColor Green
     if (-not (Test-Path "dist\installer")) { New-Item -ItemType Directory -Path "dist\installer" -Force | Out-Null }
+    # Remove older installers so only the freshly built version is left
+    Remove-Item "dist\installer\CICADA-Local-Collector-Setup*.exe" -Force -ErrorAction SilentlyContinue
     
     & $IsccPath "installer\CICADA-Collector.iss"
     if ($LASTEXITCODE -ne 0) {
@@ -88,7 +90,8 @@ if ($IsccPath) {
         exit 1
     }
 
-    $InstallerPath = Resolve-Path "dist\installer\CICADA-Local-Collector-Setup.exe" -ErrorAction SilentlyContinue
+    $InstallerPath = Get-ChildItem "dist\installer\CICADA-Local-Collector-Setup-v*.exe" -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
     if ($InstallerPath -and (Test-Path $InstallerPath)) {
         $SizeMB = [math]::Round((Get-Item $InstallerPath).Length / 1MB, 2)
         Write-Host "`n==============================================================================" -ForegroundColor Green
