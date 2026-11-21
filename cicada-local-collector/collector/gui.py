@@ -1,4 +1,4 @@
-﻿"""CICADA Local Collector — Customer Desktop Application GUI.
+"""CICADA Local Collector — Customer Desktop Application GUI.
 
 A lightweight, native, and responsive graphical user interface for Windows 10 & 11.
 Built with Python's standard library tkinter and ttk (zero extra dependencies).

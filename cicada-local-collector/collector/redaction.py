@@ -1,4 +1,4 @@
-﻿"""Redaction Engine Module.
+"""Redaction Engine Module.
 
 Provides deep regex-based pattern detection and sanitization for sensitive data:
 - Email addresses

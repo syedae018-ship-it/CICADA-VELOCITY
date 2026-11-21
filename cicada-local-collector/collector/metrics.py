@@ -1,4 +1,4 @@
-﻿"""Metrics Collection Module.
+"""Metrics Collection Module.
 
 Collects real, live system telemetry using psutil:
 - CPU usage percentage and CPU temperature

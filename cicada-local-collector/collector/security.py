@@ -1,4 +1,4 @@
-﻿"""Security & Authentication Telemetry Module.
+"""Security & Authentication Telemetry Module.
 
 Monitors failed login attempts across operating systems while strictly
 preserving user privacy:

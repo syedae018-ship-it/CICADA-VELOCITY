@@ -1,4 +1,4 @@
-﻿"""Storage and User Data Path Resolver.
+"""Storage and User Data Path Resolver.
 
 Resolves persistent operating system-specific user data directories:
 - Windows: %LOCALAPPDATA%\\CICADA-Collector\\

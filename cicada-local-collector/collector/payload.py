@@ -1,4 +1,4 @@
-﻿"""Telemetry Payload Module.
+"""Telemetry Payload Module.
 
 Constructs versioned, sanitized JSON telemetry payloads ready for local storage
 and future CICADA backend integration.

@@ -1,4 +1,4 @@
-﻿"""Infrastructure Health Module.
+"""Infrastructure Health Module.
 
 Evaluates system infrastructure health status based on resource utilization,
 swap usage, running process counts, power/battery status, and computes a composite

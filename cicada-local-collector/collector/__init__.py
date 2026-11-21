@@ -1,4 +1,4 @@
-﻿"""CICADA Local Collector — v0.2.0
+"""CICADA Local Collector — v0.2.0
 
 A lightweight, privacy-first local telemetry collector built in Python.
 Monitors real system metrics and outputs safe, allowlisted JSON snapshots.

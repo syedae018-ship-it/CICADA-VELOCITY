@@ -1,4 +1,4 @@
-﻿"""Local Offline Buffer & Data Management Module.
+"""Local Offline Buffer & Data Management Module.
 
 Uses a lightweight SQLite database to reliably store telemetry events
 when the network is offline or Supabase is temporarily unreachable.

@@ -1,4 +1,4 @@
-﻿"""Configuration Loader Module.
+"""Configuration Loader Module.
 
 Loads collector configuration from environment variables, local .env,
 and user AppData device_config.json.

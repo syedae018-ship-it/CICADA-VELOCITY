@@ -1,4 +1,4 @@
-﻿"""Collector Identity Module.
+"""Collector Identity Module.
 
 Manages persistent, anonymous collector identification.
 A random UUIDv4 is generated on first run and stored locally.

@@ -1,4 +1,4 @@
-﻿"""Network Quality & Latency Probe Module.
+"""Network Quality & Latency Probe Module.
 
 Measures:
 - Network Latency (RTT in ms)

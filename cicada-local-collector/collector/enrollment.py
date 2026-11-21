@@ -1,4 +1,4 @@
-﻿"""Device Enrollment & Local Credential Module.
+"""Device Enrollment & Local Credential Module.
 
 Manages secure device onboarding and association with a CICADA tenant.
 Stores device credentials in persistent user AppData or reads from environment variables.

@@ -1,4 +1,4 @@
-﻿"""CICADA Local Collector — Main Entrypoint and Terminal Dashboard.
+"""CICADA Local Collector — Main Entrypoint and Terminal Dashboard.
 
 Integrates:
 - Modern native desktop GUI (Tkinter) by default on double-click

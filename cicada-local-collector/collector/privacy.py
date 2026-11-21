@@ -1,4 +1,4 @@
-﻿"""Privacy-First Telemetry & Strict Allowlisting Module.
+"""Privacy-First Telemetry & Strict Allowlisting Module.
 
 Enforces centralized, strict telemetry boundaries:
 - Explicit allowlist defining every permitted field (18 operational metrics).

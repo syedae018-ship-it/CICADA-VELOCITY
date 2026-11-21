@@ -1,4 +1,4 @@
-﻿"""Supabase Direct HTTPS REST Upload Module.
+"""Supabase Direct HTTPS REST Upload Module.
 
 Directly uploads allowlisted telemetry events to Supabase PostgREST endpoint
 using Python standard library urllib.request (zero third-party dependencies).

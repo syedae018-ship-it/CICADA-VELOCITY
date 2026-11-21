@@ -1,4 +1,4 @@
-﻿"""System Information Module.
+"""System Information Module.
 
 Collects non-sensitive system environment details:
 - Operating system and release version
