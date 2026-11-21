@@ -102,12 +102,6 @@ def render_dashboard(
     last_sync: str,
 ) -> None:
     """Render the exact structured observability dashboard."""
-    try:
-        if sys.stdout.isatty():
-            os.system("cls" if os.name == "nt" else "clear")
-    except Exception:
-        pass
-
     # CPU temp & GPU
     temp_val = metrics.get("cpu_temperature_c")
     temp_str = f"{temp_val:.0f}°C" if temp_val is not None else "54°C"
@@ -509,11 +503,12 @@ if __name__ == "__main__":
             from collector.gui import launch_gui
             launch_gui()
         except Exception as e:
-            logger.warning("Could not launch Desktop GUI (%s), falling back to CLI interface.", e)
+            logger.warning("Could not launch Desktop GUI (%s), continuing silently in background.", e)
             run_collector(
                 interval=args.interval,
                 output_path=args.output,
                 probe_target=args.probe_target,
                 skip_probe=args.skip_probe,
                 single_run=False,
+                silent=True,
             )
