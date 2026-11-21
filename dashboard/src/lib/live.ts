@@ -453,55 +453,60 @@ export async function rollbackLive(recId: string, tenantId: TenantId) {
 }
 
 /** Natural-language query against the AIOps engine (connected to Supabase + Gemini API). */
+export type ChatTurn = { role: "user" | "bot"; text: string };
+
 export async function sendChatMessage(
   tenantId: TenantId,
   message: string,
-  context: string = "",
-  geminiApiKey?: string
+  history: ChatTurn[] = []
 ): Promise<Json> {
-  // 1. Try Next.js server route /api/chat first (direct Supabase + Gemini connection)
+  // 1. Next.js server route /api/chat (Supabase context + Gemini, key stays server-side)
   try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 12000);
-    const storedGeminiKey =
-      geminiApiKey ||
-      (typeof window !== "undefined"
-        ? window.localStorage.getItem("velocity_cicada_gemini_key") || undefined
-        : undefined);
-
     const r = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
-      signal: ctrl.signal,
-      body: JSON.stringify({ tenantId, message, context, geminiApiKey: storedGeminiKey }),
+      signal: AbortSignal.timeout(30000),
+      body: JSON.stringify({ tenantId, message, history }),
     });
-    clearTimeout(t);
-    if (r.ok) {
-      const data = await r.json();
-      return data;
-    }
+    if (r.ok) return await r.json();
   } catch {
     // If local /api/chat is unavailable, proceed to backend fallback
   }
 
   // 2. Fallback to SaaS FastAPI backend
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 6000);
+  const r = await fetch(`${SAAS_URL}/api/v1/chat`, {
+    method: "POST",
+    headers: { ...authHeader(tenantId), "Content-Type": "application/json" },
+    cache: "no-store",
+    signal: AbortSignal.timeout(6000),
+    body: JSON.stringify({ message, context: "" }),
+  });
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body?.detail ?? `HTTP ${r.status}`);
+  return body;
+}
+
+/** Ingest firewall (collector → receiver gate): rules, counters, recent decisions. Null when backend offline. */
+export async function fetchFirewallStatus(tenantId: TenantId): Promise<Json | null> {
   try {
-    const r = await fetch(`${SAAS_URL}/api/v1/chat`, {
-      method: "POST",
-      headers: { ...authHeader(tenantId), "Content-Type": "application/json" },
-      cache: "no-store",
-      signal: ctrl.signal,
-      body: JSON.stringify({ message, context, geminiApiKey }),
-    });
-    const body = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(body?.detail ?? `HTTP ${r.status}`);
-    return body;
-  } finally {
-    clearTimeout(t);
+    return await getJson(`${SAAS_URL}/api/v1/firewall/status`, authHeader(tenantId));
+  } catch {
+    return null;
   }
+}
+
+/** Fire synthetic hostile requests at every firewall rule and report which were blocked. */
+export async function runFirewallSelftest(tenantId: TenantId): Promise<Json> {
+  const r = await fetch(`${SAAS_URL}/api/v1/firewall/selftest`, {
+    method: "POST",
+    headers: authHeader(tenantId),
+    cache: "no-store",
+    signal: AbortSignal.timeout(15000),
+  });
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body?.detail ?? `HTTP ${r.status}`);
+  return body;
 }
 
 /** Defense-in-depth 5-layer status. Returns null when backend offline. */

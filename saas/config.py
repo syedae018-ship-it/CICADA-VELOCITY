@@ -20,4 +20,7 @@ TENANTS = {
 COLLECTORS = {
     "c_blr01": {"tenant_id": "t_acme", "region": "ap-south-1", "secret": "dev-secret-c_blr01"},
     "c_fra01": {"tenant_id": "t_globex", "region": "eu-west-1", "secret": "dev-secret-c_fra01"},
+    # Prometheus bridge (demo/prometheus_bridge.py): live public-Prometheus data standing in for a collector.
+    "c_prom01": {"tenant_id": "t_acme", "region": "ap-south-1",
+                 "secret": os.getenv("PROM_BRIDGE_SECRET", "dev-secret-c_prom01")},
 }

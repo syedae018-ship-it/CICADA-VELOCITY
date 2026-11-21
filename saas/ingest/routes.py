@@ -26,6 +26,7 @@ from saas import config
 from saas.aiops import on_heartbeat, on_ingest
 from saas.db import DuplicatePayload, get_store, now_utc, parse_utc
 from saas.ingest.auth import get_tenant, register_collector, verify_collector_auth
+from saas.ingest.firewall import FIREWALL, client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +74,7 @@ def _mark_seen(tenant_id: str, collector_id: str, fields: dict) -> None:
     if prev is None:
         prev = store.get_collector(tenant_id, collector_id) or {}
     now = fields["last_seen_utc"]
-    came_back = prev.get("status") == "offline"
+    came_back = prev.get("status") in ("offline", None)   # None = first contact ever
     update = {"status": "online", **fields}
     if came_back:
         update["state"] = "good"
@@ -86,6 +87,27 @@ def _mark_seen(tenant_id: str, collector_id: str, fields: dict) -> None:
                                         "reason": reason, "at_utc": now})
         store.insert_audit(tenant_id, {"actor": "system", "action": "collector_online", "target": collector_id,
                                        "details": {"reason": reason}, "at_utc": now})
+
+
+def _guarded(request: Request, raw_body: bytes, collector_id: Optional[str], endpoint: str,
+             validator: Draft202012Validator) -> tuple[dict, dict]:
+    """Firewall → HMAC → schema. Every block is recorded by the firewall; returns (collector, doc)."""
+    ip = client_ip(request)
+    FIREWALL.inspect(ip=ip, collector_id=collector_id, content_type=request.headers.get("content-type"),
+                     body=raw_body, endpoint=endpoint)
+    try:
+        collector = _authenticate(collector_id, raw_body, request.headers.get("X-Timestamp"),
+                                  request.headers.get("X-Signature"))
+    except HTTPException as exc:
+        FIREWALL.deny("hmac_auth", ip, collector_id, endpoint, str(exc.detail))
+        raise
+    try:
+        doc = _parse(raw_body, validator)
+    except HTTPException as exc:
+        errs = exc.detail.get("errors", []) if isinstance(exc.detail, dict) else [str(exc.detail)]
+        FIREWALL.deny("schema", ip, collector_id, endpoint, (errs[0] if errs else "schema violation")[:160])
+        raise
+    return collector, doc
 
 
 def _store_payload(tenant_id: str, collector_id: str, payload: dict, body_sha256: str) -> bool:
@@ -142,14 +164,17 @@ async def ingest_payload(
     x_signature: Optional[str] = Header(None, alias="X-Signature"),
 ):
     raw_body = await request.body()                                   # exact bytes for HMAC + hash
-    collector = _authenticate(x_collector_id, raw_body, x_timestamp, x_signature)
-    payload = _parse(raw_body, payload_validator)                     # allow-list enforced again in SaaS
+    # Firewall gate, then HMAC, then allow-list schema (enforced again in SaaS)
+    collector, payload = _guarded(request, raw_body, x_collector_id, "ingest", payload_validator)
 
     tenant_id = collector["tenant_id"]                                # tenant from registry, never trusted from body
     if payload["collector_id"] != x_collector_id or payload["tenant_id"] != tenant_id:
+        FIREWALL.deny("schema", client_ip(request), x_collector_id, "ingest", "collector/tenant mismatch with registry")
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Collector or tenant mismatch with registry")
     if payload["region"] != collector["region"]:
+        FIREWALL.deny("schema", client_ip(request), x_collector_id, "ingest", "wrong regional endpoint")
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Collector sent to the wrong regional endpoint")
+    FIREWALL.allow(client_ip(request), x_collector_id, "ingest")
 
     body_sha256 = hashlib.sha256(raw_body).hexdigest()
     accepted = None
@@ -183,10 +208,11 @@ async def heartbeat(
     x_signature: Optional[str] = Header(None, alias="X-Signature"),
 ):
     raw_body = await request.body()
-    collector = _authenticate(x_collector_id, raw_body, x_timestamp, x_signature)
-    hb = _parse(raw_body, heartbeat_validator)
+    collector, hb = _guarded(request, raw_body, x_collector_id, "heartbeat", heartbeat_validator)
     if hb["collector_id"] != x_collector_id or hb["tenant_id"] != collector["tenant_id"]:
+        FIREWALL.deny("schema", client_ip(request), x_collector_id, "heartbeat", "registry mismatch")
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Registry mismatch")
+    FIREWALL.allow(client_ip(request), x_collector_id, "heartbeat")
     try:
         await run_in_threadpool(_mark_seen, collector["tenant_id"], x_collector_id,
                                 {"last_seen_utc": now_utc(), "buffer_depth": hb["buffer_depth"],
@@ -376,3 +402,84 @@ async def startup() -> None:
     logger.info("SaaS storage backend: %s", store.name)
     if _bg_task is None or _bg_task.done():
         _bg_task = asyncio.create_task(_offline_detector_loop())
+
+
+# ── Firewall visibility (dashboard) ──────────────────────────────────────────
+
+@router.get("/firewall/status")
+def firewall_status(tenant_id: str = Depends(get_tenant)):
+    """Live firewall rules, counters, quarantine list and recent decisions for this tenant."""
+    return FIREWALL.status(tenant_id)
+
+
+@router.post("/firewall/selftest")
+def firewall_selftest(tenant_id: str = Depends(get_tenant)):
+    """Fire one synthetic hostile request at each rule and prove it is blocked, plus one clean payload
+    that is allowed. Nothing is stored; results are logged as synthetic decisions."""
+    from transport.signing import sign
+
+    cid = next((c for c, v in config.COLLECTORS.items() if v["tenant_id"] == tenant_id), None)
+    secret = config.COLLECTORS[cid]["secret"] if cid else "none"
+    sample = json.loads((CONTRACTS_DIR / "sample_payloads" / "01_normal.json").read_text())
+    sample.update({"tenant_id": tenant_id, "collector_id": cid or sample["collector_id"],
+                   "region": config.COLLECTORS.get(cid, {}).get("region", sample["region"])})
+    clean = json.dumps(sample).encode()
+    leaky = json.loads(clean)
+    leaky["events"] = [{"event_id": "11111111-2222-4333-8444-555555555555", "event_time_utc": sample["sent_at_utc"],
+                        "source_id": sample["sources"][0]["source_id"], "category": "auth", "severity": "high",
+                        "type": "failed_login_burst", "count": 3,
+                        "summary": "login failed for admin@acme.com key=AKIAIOSFODNN7EXAMPLE"}]
+    extra = json.loads(clean)
+    extra["raw_log"] = "Nov 21 sshd[311]: Failed password for root"
+
+    results = []
+
+    def run(name: str, expect: str, fn) -> None:
+        try:
+            fn()
+            results.append({"probe": name, "expected": expect, "result": "allowed", "passed": expect == "allowed"})
+        except HTTPException as exc:
+            rule = exc.detail.get("rule") if isinstance(exc.detail, dict) else None
+            results.append({"probe": name, "expected": expect, "result": f"blocked ({rule or exc.status_code})",
+                            "passed": expect == "blocked", "rule": rule})
+
+    def gate(ip="127.0.0.1", ctype="application/json", body=clean, collector=cid):
+        FIREWALL.inspect(ip=ip, collector_id=collector, content_type=ctype, body=body, endpoint="selftest",
+                         synthetic=True)
+
+    run("Request from an unknown public IP", "blocked", lambda: gate(ip="203.0.113.50"))
+    run("Non-JSON content type", "blocked", lambda: gate(ctype="text/plain"))
+    run("Oversized 1 MB body", "blocked", lambda: gate(body=b'{"x":"' + b"A" * (1024 * 1024) + b'"}'))
+    run("Payload leaking an email + AWS key", "blocked", lambda: gate(body=json.dumps(leaky).encode()))
+
+    def flood():
+        for _ in range(500):
+            gate(collector=None, ip="127.0.0.250", body=b"{}")
+    run("Flood of 500 requests", "blocked", flood)
+
+    def forged():
+        ok, err, _ = verify_collector_auth(cid or "", clean, str(int(datetime.now().timestamp())), "0" * 64)
+        if not ok:
+            FIREWALL.deny("hmac_auth", "127.0.0.1", cid, "selftest", err or "bad signature", synthetic=True)
+            raise HTTPException(401, detail={"rule": "hmac_auth"})
+    run("Forged HMAC signature", "blocked", forged)
+
+    def unknown_field():
+        gate(body=json.dumps(extra).encode())
+        errs = [e.message for e in payload_validator.iter_errors(extra)]
+        if errs:
+            FIREWALL.deny("schema", "127.0.0.1", cid, "selftest", errs[0][:160], synthetic=True)
+            raise HTTPException(422, detail={"rule": "schema"})
+    run("Raw log smuggled in an extra field", "blocked", unknown_field)
+
+    def legit():
+        gate()
+        hdr = sign(secret, clean)
+        ok, err, _ = verify_collector_auth(cid or "", clean, hdr["X-Timestamp"], hdr["X-Signature"])
+        if not ok or list(payload_validator.iter_errors(sample)):
+            raise HTTPException(500, detail={"rule": "unexpected"})
+        FIREWALL.allow("127.0.0.1", cid, "selftest", "clean signed payload", synthetic=True)
+    run("Clean, signed, allow-listed payload", "allowed", legit)
+
+    return {"tenant_id": tenant_id, "passed": sum(r["passed"] for r in results), "total": len(results),
+            "results": results}

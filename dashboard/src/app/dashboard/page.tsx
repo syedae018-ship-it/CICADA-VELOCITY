@@ -18,7 +18,8 @@ import TimelineView from "@/components/dashboard/views/TimelineView";
 import HistoryView from "@/components/dashboard/views/HistoryView";
 import ReportsView from "@/components/dashboard/views/ReportsView";
 import SecurityView from "@/components/dashboard/views/SecurityView";
-import ChatbotView from "@/components/dashboard/views/ChatbotView";
+import FirewallView from "@/components/dashboard/views/FirewallView";
+import ChatWidget from "@/components/dashboard/ChatWidget";
 
 import { dataStore } from "@/lib/api";
 import { setAccessToken } from "@/lib/live";
@@ -26,8 +27,8 @@ import { currentUser, signOut } from "@/lib/supabase";
 import { DashboardTab, TenantId, MonitoredSource, TimeRange, ScenarioId, SCENARIOS } from "@/types";
 
 const TABS: DashboardTab[] = [
-  "overview", "sources", "fleet", "incidents", "ai_insights", "chatbot", "egress",
-  "privacy", "security", "reliability", "timeline", "history", "reports",
+  "overview", "sources", "fleet", "incidents", "ai_insights", "egress",
+  "privacy", "security", "firewall", "reliability", "timeline", "history", "reports",
 ];
 const TENANTS: TenantId[] = ["t_acme", "t_globex"];
 
@@ -44,6 +45,7 @@ export default function DashboardPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>("15m");
 
   const triggerRefresh = () => setRefreshKey((prev) => prev + 1);
+  const [urlRead, setUrlRead] = useState(false);
 
   // Deep links: the URL always reflects the view and tenant, e.g. /?view=incidents&tenant=t_acme
   useEffect(() => {
@@ -52,13 +54,15 @@ export default function DashboardPage() {
     const tenant = q.get("tenant") as TenantId | null;
     if (view && TABS.includes(view)) setCurrentTab(view);
     if (tenant && TENANTS.includes(tenant)) setTenantId(tenant);
+    setUrlRead(true);
   }, []);
   useEffect(() => {
+    if (!urlRead) return; // don't overwrite the deep link before it has been read
     const q = new URLSearchParams(window.location.search);
     q.set("view", currentTab);
     q.set("tenant", tenantId);
     window.history.replaceState(null, "", `${window.location.pathname}?${q.toString()}`);
-  }, [currentTab, tenantId]);
+  }, [currentTab, tenantId, urlRead]);
 
   const [scenarioMessage, setScenarioMessage] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -274,13 +278,16 @@ export default function DashboardPage() {
             )}
 
             {currentTab === "security" && <SecurityView tenantId={tenantId} />}
-            {currentTab === "chatbot" && <ChatbotView tenantId={tenantId} />}
+            {currentTab === "firewall" && <FirewallView tenantId={tenantId} />}
             {currentTab === "reports" && (
               <ReportsView tenantId={tenantId} />
             )}
           </div>
         </main>
       </div>
+
+      {/* Floating AIOps assistant (bottom-right on every view) */}
+      <ChatWidget tenantId={tenantId} />
 
       {/* Global Search Modal (⌘K) */}
       <GlobalSearchModal

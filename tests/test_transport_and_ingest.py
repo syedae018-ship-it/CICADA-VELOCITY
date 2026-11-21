@@ -139,7 +139,8 @@ def test_saas_ingest_auth_and_schema_validation():
     }
     resp = client.post("/api/v1/ingest", content=inv_bytes, headers=inv_headers)
     assert resp.status_code == 422
-    assert "rejected" in resp.json()["detail"]["status"]
+    # The ingest firewall's content scan now catches the leak before the schema stage does.
+    assert resp.json()["detail"]["status"] in ("rejected", "blocked_by_firewall")
 
 
 def test_data_residency_by_tenant():

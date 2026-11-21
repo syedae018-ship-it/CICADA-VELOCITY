@@ -225,11 +225,11 @@ export interface ActivityTimelineEvent {
 
 export type DashboardTab =
   | "overview"
+  | "firewall"
   | "sources"
   | "fleet"
   | "incidents"
   | "ai_insights"
-  | "chatbot"
   | "egress"
   | "privacy"
   | "security"

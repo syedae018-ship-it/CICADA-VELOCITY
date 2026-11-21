@@ -140,7 +140,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const tenantId = body.tenantId || "t_acme";
     const message = (body.message || "").trim();
-    const clientGeminiKey = body.geminiApiKey || "";
+    // Prior turns from the widget, so Gemini can hold a real conversation.
+    const history: { role: "user" | "bot"; text: string }[] = Array.isArray(body.history)
+      ? body.history
+          .filter((h: any) => h && typeof h.text === "string" && (h.role === "user" || h.role === "bot"))
+          .slice(-12)
+          .map((h: any) => ({ role: h.role, text: String(h.text).slice(0, 4000) }))
+      : [];
 
     if (!message) {
       return NextResponse.json({
@@ -149,11 +155,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const geminiKey =
-      clientGeminiKey ||
-      process.env.GEMINI_API_KEY ||
-      process.env.NEXT_PUBLIC_GEMINI_API_KEY ||
-      process.env.GOOGLE_API_KEY;
+    // Server-side only. Never accept a key from the browser or a NEXT_PUBLIC_ variable.
+    const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
     // ── FIREWALL CHECK (Used when Gemini is offline or for hard injections) ─────
     const firewallResult = checkPlatformFirewall(message);
@@ -231,8 +234,16 @@ export async function POST(req: NextRequest) {
     ]);
 
     // Format Supabase context snapshot
-    const openAlerts = (alerts || []).filter((a) => a.status === "open");
-    const activeIncidents = (incidents || []).filter((i) => i.status === "open");
+    // Supabase keeps history, and rows left "open" by a SaaS restart are never closed. Only count items
+    // touched recently as active, so the assistant agrees with what the dashboard shows.
+    const FRESH_MS = 2 * 60 * 60 * 1000;
+    const isFresh = (ts?: string) => !!ts && Date.now() - new Date(ts).getTime() < FRESH_MS;
+    const openAlerts = (alerts || []).filter(
+      (a) => a.status === "open" && isFresh(a.updated_utc || a.created_at_utc)
+    );
+    const staleOpenAlerts = (alerts || []).filter((a) => a.status === "open").length - openAlerts.length;
+    const activeIncidents = (incidents || []).filter((i) => i.status === "open" && isFresh(i.updated_utc));
+    const staleOpenIncidents = (incidents || []).filter((i) => i.status === "open").length - activeIncidents.length;
     const onlineCollectors = (collectors || []).filter((c) => c.status === "online");
 
     const telemetryContext = {
@@ -245,6 +256,7 @@ export async function POST(req: NextRequest) {
         active_incidents: activeIncidents.length,
         collectors_online: `${onlineCollectors.length} of ${collectors?.length || 0}`,
         pending_recommendations: (recs || []).filter((r) => r.status === "proposed").length,
+        stale_unresolved_history: `${staleOpenAlerts} alerts and ${staleOpenIncidents} incidents older than 2h were never closed; they are history, not active problems`,
       },
       open_alerts: openAlerts.map((a) => ({
         id: a.alert_id,
@@ -254,7 +266,7 @@ export async function POST(req: NextRequest) {
         severity: a.severity,
         explanation: a.explanation?.why || a.kind,
       })),
-      incidents: (incidents || []).map((i) => ({
+      incidents: activeIncidents.map((i) => ({
         id: i.incident_id,
         title: i.title,
         severity: i.severity,
@@ -312,7 +324,7 @@ export async function POST(req: NextRequest) {
       lowerQuery.includes("outage") ||
       activeIncidents.length > 0
     ) {
-      for (const inc of (incidents || []).slice(0, 3)) {
+      for (const inc of activeIncidents.slice(0, 3)) {
         cards.push({
           kind: "incident",
           title: inc.title || "Infrastructure Incident",
@@ -381,7 +393,7 @@ export async function POST(req: NextRequest) {
     // 3. Invoke Gemini if key is configured
     if (geminiKey) {
       try {
-        const geminiResult = await callGemini(geminiKey, message, telemetryContext);
+        const geminiResult = await callGemini(geminiKey, message, telemetryContext, history);
         if (geminiResult) {
           return NextResponse.json({
             reply: geminiResult.reply,
@@ -419,14 +431,13 @@ export async function POST(req: NextRequest) {
 async function callGemini(
   apiKey: string,
   userMessage: string,
-  context: any
+  context: any,
+  history: { role: "user" | "bot"; text: string }[] = []
 ): Promise<{ reply: string; model: string } | null> {
-  const models = [
-    "gemini-3.1-flash-lite",
-    "gemini-3.5-flash",
-    "gemini-3-flash-preview",
-    "gemini-2.5-flash",
-  ];
+  // Override with GEMINI_MODEL in .env.local if you want a specific one.
+  const models = [process.env.GEMINI_MODEL, "gemini-3.5-flash", "gemini-flash-latest", "gemini-2.5-flash"].filter(
+    (m, i, a): m is string => !!m && a.indexOf(m) === i
+  );
 
   const systemInstruction = `You are the Velocity Cicada AIOps Assistant for tenant "${context.tenant_id}".
 
@@ -442,43 +453,58 @@ DOMAIN BOUNDARIES & FIREWALL:
 - If the user asks you to write non-platform application code (e.g. building games, web scrapers, unrelated Python/JS apps, Discord bots) or asks off-topic general knowledge (e.g. movies, celebrities, sports, recipes, history):
   Politely and conversationally decline in a natural human voice. Explain that you are dedicated specifically to monitoring and securing tenant "${context.tenant_id}"'s infrastructure, and offer to help them check their alerts, system telemetry, or collector health instead.
 - Never output rigid robot warning headers, error codes, or policy banners. Speak naturally and politely.
-- PRIVACY: Raw logs remain locally on the customer's host; only sanitized, allow-listed metadata is in Supabase.`;
+- PRIVACY: Raw logs remain locally on the customer's host; only sanitized, allow-listed metadata is in Supabase.
 
-  const prompt = `LIVE SUPABASE CONTEXT:
-${JSON.stringify(context, null, 2)}
+FORMAT:
+- Keep replies short and chatty (2-6 sentences) unless asked for detail. Use **bold** and simple "- " bullets only when they genuinely help.
+- Remember earlier turns in this conversation and refer back to them naturally.
+- Never invent alerts, hosts or numbers that are not in the live context. If something isn't there, say so.`;
 
-OPERATOR QUESTION:
+  const prompt = `LIVE TELEMETRY CONTEXT (refreshed this turn):
+${JSON.stringify(context)}
+
+OPERATOR MESSAGE:
 ${userMessage}`;
+
+  // Earlier turns go in as plain text; only the latest turn carries the live context.
+  const contents = [
+    ...history.map((h) => ({ role: h.role === "bot" ? "model" : "user", parts: [{ text: h.text }] })),
+    { role: "user", parts: [{ text: prompt }] },
+  ];
 
   for (const model of models) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      // The key must go in the x-goog-api-key header; the ?key= query form now returns 404.
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
       const res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        signal: AbortSignal.timeout(20000),
         body: JSON.stringify({
           system_instruction: {
             parts: [{ text: systemInstruction }],
           },
-          contents: [
-            {
-              role: "user",
-              parts: [{ text: prompt }],
-            },
-          ],
+          contents,
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 800,
+            maxOutputTokens: 2048,
+            // Thinking tokens count against maxOutputTokens; keep them small for a snappy chat.
+            thinkingConfig: { thinkingBudget: 256 },
           },
         }),
       });
 
       if (res.ok) {
         const data = await res.json();
-        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        const parts: any[] = data?.candidates?.[0]?.content?.parts || [];
+        const text = parts
+          .filter((p) => typeof p?.text === "string" && !p.thought)
+          .map((p) => p.text)
+          .join("")
+          .trim();
         if (text) {
-          return { reply: text.trim(), model };
+          return { reply: text, model: data?.modelVersion || model };
         }
       } else {
         const errBody = await res.text();
@@ -568,12 +594,4 @@ How's everything going on your end? Feel free to ask about your server metrics, 
 • **Pending Recommendations:** ${summary.pending_recommendations}
 
 Ask me about your alerts, CPU load, collector health, or incident recommendations and I'll pull the live details.`;
-  return `🤖 Velocity Cicada AIOps Co-Pilot (Live Supabase Connected):
-• Monitored Tenant: ${context.tenant_id}
-• Open Alerts: ${summary.open_alerts}
-• Active Incidents: ${summary.active_incidents}
-• Collectors Online: ${summary.collectors_online}
-• Pending Recommendations: ${summary.pending_recommendations}
-
-Ask me about specific alerts, incidents, CPU load, collector status, or recommended actions.`;
 }

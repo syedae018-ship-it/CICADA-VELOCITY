@@ -502,8 +502,13 @@ class SupabaseStore(BaseStore):
             self.t("events").upsert(rows, on_conflict="event_id", ignore_duplicates=True).execute()
 
     def update_collector(self, tenant_id, collector_id, fields):
-        if fields:
-            self.t("collectors").update(fields).eq("tenant_id", tenant_id).eq("collector_id", collector_id).execute()
+        if not fields:
+            return
+        res = self.t("collectors").update(fields).eq("tenant_id", tenant_id).eq("collector_id", collector_id).execute()
+        if not res.data:   # first contact from a collector not yet in Supabase (same as SQLite's INSERT OR IGNORE)
+            region = (config.COLLECTORS.get(collector_id) or {}).get("region") or region_for_tenant(tenant_id)
+            self.t("collectors").insert({"collector_id": collector_id, "tenant_id": tenant_id, "region": region,
+                                         "status": "offline", **fields}).execute()
 
     def get_collector(self, tenant_id, collector_id):
         d = self.t("collectors").select("*").eq("tenant_id", tenant_id).eq("collector_id", collector_id).limit(1).execute().data

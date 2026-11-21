@@ -20,8 +20,8 @@ import {
   ChevronRight,
   X,
   Shield,
-  MessageSquare,
   Lock,
+  BrickWall,
 } from "lucide-react";
 import { DashboardTab, TenantId } from "@/types";
 
@@ -68,12 +68,12 @@ export default function Sidebar({
       badgeKind: "count",
     },
     { id: "ai_insights", label: "AI Insights", icon: Sparkles },
-    { id: "chatbot", label: "AIOps Chat", icon: MessageSquare },
     { id: "egress", label: "Egress Proof", icon: ShieldCheck },
   ];
 
   const general: NavItem[] = [
     { id: "security", label: "Security", icon: Lock },
+    { id: "firewall", label: "Firewall", icon: BrickWall },
     { id: "privacy", label: "Privacy", icon: EyeOff },
     { id: "reliability", label: "Reliability", icon: Activity },
     { id: "timeline", label: "Timeline", icon: Clock },
@@ -220,7 +220,7 @@ export default function Sidebar({
       {/* Footer promo card — rich forest gradient */}
       {!isCollapsed && (
         <div
-          className="m-4 relative overflow-hidden rounded-2xl p-5 text-white"
+          className="m-4 relative overflow-hidden rounded-2xl p-5 text-white hidden [@media(min-height:1000px)]:block"
           style={{
             background:
               "radial-gradient(130% 110% at 20% 20%, #176534 0%, #0a3a1e 55%, #062715 100%)",
