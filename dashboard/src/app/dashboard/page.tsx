@@ -92,7 +92,10 @@ export default function DashboardPage() {
     setTenantLocked(false);
   };
 
-  // Live data: poll the SaaS + collector every 3 s (falls back to mock data when they are not running)
+  // Live data: poll the SaaS + collector (falls back to mock data when they are not running).
+  // History and Reports are historical snapshots — slow the poll way down there to keep the UI
+  // smooth; everywhere else keeps the responsive 3 s cadence.
+  const isSnapshotTab = currentTab === "history" || currentTab === "reports";
   useEffect(() => {
     let cancelled = false;
     const sync = async () => {
@@ -100,12 +103,13 @@ export default function DashboardPage() {
       if (!cancelled) setRefreshKey((prev) => prev + 1);
     };
     sync();
-    const timer = setInterval(sync, 3000);
+    const interval = isSnapshotTab ? 30000 : 3000;
+    const timer = setInterval(sync, interval);
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [tenantId]);
+  }, [tenantId, isSnapshotTab]);
 
   // Fetch current state from data store
   const sources = dataStore.getSources(tenantId);
