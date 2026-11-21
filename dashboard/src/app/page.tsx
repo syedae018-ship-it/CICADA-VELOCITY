@@ -36,7 +36,7 @@ function Nav() {
   return (
     <header className="fixed inset-x-0 top-0 z-50">
       <div className="mx-auto max-w-7xl px-5 sm:px-8 mt-4">
-        <div className="flex items-center justify-between h-14 px-4 sm:px-5 rounded-full border border-white/10 bg-[#0B1F14]/70 backdrop-blur-xl shadow-[0_8px_30px_-10px_rgba(0,0,0,0.45)]">
+        <div className="flex items-center justify-between h-14 px-4 sm:px-5 rounded-full border border-white/10 bg-[#0B1F14]/95 shadow-[0_8px_30px_-10px_rgba(0,0,0,0.45)]">
           <Link href="/" className="flex items-center gap-2.5 group">
             <LogoMark />
             <span className="text-white font-semibold tracking-[-0.02em] text-[15px] font-[family-name:var(--font-poppins)]">Velocity Cicada</span>
@@ -155,7 +155,6 @@ function Hero() {
           style={{ animationDelay: "320ms" }}
         >
           <HeroMock />
-          <div aria-hidden className="absolute inset-0 pointer-events-none landing-float" />
         </div>
       </div>
 
@@ -192,7 +191,7 @@ const MARQUEE = [
 
 function HeroMock() {
   return (
-    <div className="relative mx-auto w-full max-w-[520px] rounded-[28px] border border-white/10 bg-[#0A1D12]/90 backdrop-blur-xl shadow-[0_60px_120px_-40px_rgba(0,0,0,0.6)] overflow-hidden">
+    <div className="relative mx-auto w-full max-w-[520px] rounded-[28px] border border-white/10 bg-[#0A1D12] shadow-[0_60px_120px_-40px_rgba(0,0,0,0.6)] overflow-hidden">
       {/* chrome */}
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/10">
         <div className="flex items-center gap-1.5">
