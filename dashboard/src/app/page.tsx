@@ -1,512 +1,641 @@
 "use client";
 
+/**
+ * Velocity Cicada landing page.
+ *
+ * Cinematic dark hero with a live-telemetry mock, then three cards on how it
+ * works, two visual proof sections (privacy and explainable AI), a stats strip
+ * and a final dark CTA. Nothing animates after the first fold except small
+ * accents that help the page feel alive. Nav and footer are intentionally minimal.
+ */
 import React from "react";
 import Link from "next/link";
 import {
   ArrowRight,
-  Shield,
+  ArrowUpRight,
+  Brain,
+  CheckCircle2,
+  Code2 as Github,
   Lock,
   ShieldCheck,
-  Users,
-  FileCheck2,
-  Server,
   Sparkles,
-  Download,
-  Monitor,
-  Code2,
-  CheckCircle2,
-  Activity,
-  Layers,
-  Zap,
-  EyeOff,
-  Wifi,
-  Database,
-  BarChart3,
-  MessageSquare,
+  TerminalSquare,
+  Workflow,
 } from "lucide-react";
 
-const LAYERS = [
-  { id: 1, name: "Local Scrubbing", icon: Shield, tier: "Tier 1", blurb: "Regex + Shannon entropy + NER redaction." },
-  { id: 2, name: "Outbound-Only", icon: Lock, tier: "Tier 1", blurb: "Zero inbound ports. SQLite buffer." },
-  { id: 3, name: "HMAC + TLS", icon: ShieldCheck, tier: "Boundary", blurb: "Signed, replay-safe, schema-checked." },
-  { id: 4, name: "Tenant Isolation", icon: Users, tier: "Tier 2", blurb: "JWT + Postgres RLS. No cross-tenant reads." },
-  { id: 5, name: "Audit & Rollback", icon: FileCheck2, tier: "Tier 2", blurb: "Policy-checked, reversible, immutable log." },
+// ───────────────────────── Nav ─────────────────────────
+
+const NAV_LINKS = [
+  { href: "#why", label: "Why" },
+  { href: "#how", label: "How it works" },
+  { href: "#proof", label: "Proof" },
+  { href: "#demo", label: "Demo" },
 ];
 
-const FEATURES = [
-  { icon: EyeOff, title: "Privacy by construction", blurb: "Raw logs, passwords and IPs stay on the customer host. Only allow-listed metadata crosses the boundary." },
-  { icon: Sparkles, title: "Explainable AIOps", blurb: "Every anomaly shows its 15-minute baseline, z-score and contributing signals. Every recommendation shows its reasoning path." },
-  { icon: Zap, title: "Correlation, not noise", blurb: "Multiple signals from the same service inside 120 seconds become one incident with a likely cause." },
-  { icon: MessageSquare, title: "Natural-language co-pilot", blurb: "Ask the AIOps engine about alerts, baselines, CPU, audit entries — plain English in, cards out." },
-  { icon: Wifi, title: "Survives network drops", blurb: "Collector buffers locally, retries with backoff and replays with payload-id idempotency. Zero loss, zero duplicates." },
-  { icon: Database, title: "Supabase + RLS", holder: true, blurb: "Multi-tenant Postgres with Row Level Security, Auth and Realtime. One source of truth across every view." },
-];
-
-const STATS = [
-  { k: "0", label: "secrets leaked to SaaS", mono: true },
-  { k: "1.2s", label: "p95 ingest latency", mono: true },
-  { k: "9", label: "live demo scenarios", mono: true },
-  { k: "100%", label: "schema-validated payloads", mono: true },
-];
-
-export default function LandingPage() {
+function Nav() {
   return (
-    <div className="min-h-screen bg-canvas">
-      {/* Nav */}
-      <header className="sticky top-0 z-40 bg-canvas/80 backdrop-blur border-b border-hairline">
-        <div className="max-w-7xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+    <header className="fixed inset-x-0 top-0 z-50">
+      <div className="mx-auto max-w-7xl px-5 sm:px-8 mt-4">
+        <div className="flex items-center justify-between h-14 px-4 sm:px-5 rounded-full border border-white/10 bg-[#0B1F14]/70 backdrop-blur-xl shadow-[0_8px_30px_-10px_rgba(0,0,0,0.45)]">
+          <Link href="/" className="flex items-center gap-2.5 group">
             <LogoMark />
-            <div className="font-bold text-ink text-[16px] tracking-tight">Velocity Cicada</div>
-            <span className="hidden sm:inline-flex ml-2 text-[10px] uppercase tracking-[0.15em] px-2 py-0.5 rounded-full bg-brand-chip text-brand-800 border border-[#d5e6b4] font-semibold">
-              CICADA 2026
-            </span>
-          </div>
-          <nav className="flex items-center gap-2">
-            <a
-              href="https://github.com/syedae018-ship-it/CICADA-VELOCITY"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden sm:inline-flex btn-pill h-10 px-4 items-center gap-2"
-            >
-              <Code2 className="w-4 h-4 icon-sharp" /> GitHub
-            </a>
-            <Link href="/dashboard" className="btn-pill-primary h-10 px-5 inline-flex items-center gap-2">
-              Open dashboard <ArrowRight className="w-4 h-4 icon-sharp" />
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      {/* HERO */}
-      <section className="relative overflow-hidden">
-        <div
-          className="absolute inset-0 -z-10"
-          style={{
-            background:
-              "radial-gradient(60% 50% at 70% 30%, rgba(191,240,156,0.18) 0%, rgba(244,245,239,0) 60%)",
-          }}
-        />
-        <div className="max-w-7xl mx-auto px-5 sm:px-8 pt-14 pb-20 grid lg:grid-cols-5 gap-10 items-center">
-          <div className="lg:col-span-3 space-y-6">
-            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] uppercase tracking-[0.18em] font-semibold bg-brand-chip text-brand-800 border border-[#d5e6b4]">
-              <Sparkles className="w-3.5 h-3.5" /> Privacy-first AIOps · defense-in-depth
-            </span>
-            <h1 className="text-[44px] sm:text-[58px] lg:text-[68px] leading-[0.98] font-bold tracking-[-0.038em] text-ink">
-              Raw data stays <span className="text-brand-700">home.</span><br />
-              Only <span className="text-brand-800">metadata</span> moves.
-            </h1>
-            <p className="max-w-2xl text-[17px] leading-relaxed text-ink-soft">
-              Velocity Cicada is a two-tier observability platform. A local collector sits inside each
-              customer environment, scrubs secrets, and sends only allow-listed metadata to a multi-tenant
-              SaaS that learns baselines, correlates signals and proposes explainable, human-approved
-              remediation — proving byte-for-byte what left the site.
-            </p>
-            <div className="flex flex-wrap gap-3 pt-2">
-              <Link href="/dashboard" className="btn-pill-primary h-12 px-6 inline-flex items-center gap-2">
-                Open live dashboard <ArrowRight className="w-4 h-4 icon-sharp" />
-              </Link>
+            <span className="text-white font-semibold tracking-tight text-[15px]">Velocity Cicada</span>
+          </Link>
+          <nav className="hidden md:flex items-center gap-1 text-[13px]">
+            {NAV_LINKS.map((l) => (
               <a
-                href="/downloads/CICADA-Local-Collector-Setup-v3.2.exe"
-                download
-                className="btn-pill h-12 px-6 inline-flex items-center gap-2"
+                key={l.href}
+                href={l.href}
+                className="px-3 py-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/5 transition-colors"
               >
-                <Download className="w-4 h-4 icon-sharp" /> Download for Windows
+                {l.label}
               </a>
-            </div>
-            <div className="flex flex-wrap gap-5 pt-4 text-[13px] text-ink-muted">
-              <Bullet>End-to-end live Supabase</Bullet>
-              <Bullet>HMAC + Row-Level Security</Bullet>
-              <Bullet>9 injectable scenarios</Bullet>
-            </div>
-          </div>
-
-          {/* Right: 5-layer visual */}
-          <div className="lg:col-span-2">
-            <HeroShield />
-          </div>
-        </div>
-      </section>
-
-      {/* Stats strip */}
-      <section className="border-y border-hairline bg-canvas-deep/40">
-        <div className="max-w-7xl mx-auto px-5 sm:px-8 py-8 grid grid-cols-2 md:grid-cols-4 gap-6">
-          {STATS.map((s) => (
-            <div key={s.label} className="text-center">
-              <div className={`text-[36px] font-bold text-brand-800 leading-none ${s.mono ? "font-mono" : ""}`}>
-                {s.k}
-              </div>
-              <div className="mt-2 text-[11px] uppercase tracking-[0.18em] font-semibold text-ink-muted">
-                {s.label}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Architecture flow */}
-      <section className="max-w-7xl mx-auto px-5 sm:px-8 py-20">
-        <SectionHead
-          eyebrow="How it works"
-          title="Two tiers. One source of truth."
-          sub="Every hop is verifiable. The dashboard shows the exact JSON that crossed the boundary — and the matching row in Supabase."
-        />
-        <div className="mt-10 grid md:grid-cols-4 gap-4">
-          <FlowStep icon={Server} title="Tier 1 · Collector" sub="Per customer. Raw logs, SNMP, flows, agents. Redacts, aggregates, buffers." />
-          <FlowStep icon={ShieldCheck} title="Transport" sub="HMAC-SHA256 over timestamp+body. HTTPS only. Replay-safe, outbound-only." />
-          <FlowStep icon={Database} title="Tier 2 · SaaS" sub="Postgres + RLS. AIOps engine learns baselines, correlates alerts into incidents." />
-          <FlowStep icon={BarChart3} title="Dashboard" sub="Realtime. Egress proof, side-by-side privacy view, explainable AIOps co-pilot." last />
-        </div>
-      </section>
-
-      {/* 5 layers */}
-      <section className="bg-canvas-deep/40 border-y border-hairline">
-        <div className="max-w-7xl mx-auto px-5 sm:px-8 py-20">
-          <SectionHead
-            eyebrow="Defense in depth"
-            title="Five layers between an attacker and your data."
-            sub="Each layer is active in code, verifiable in the dashboard, and summarized in the Security view."
-          />
-          <div className="mt-10 grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            {LAYERS.map((l) => {
-              const Icon = l.icon;
-              return (
-                <div key={l.id} className="card card-hover p-5">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="h-10 w-10 rounded-xl flex items-center justify-center text-white"
-                      style={{
-                        background:
-                          "radial-gradient(130% 110% at 15% 10%, #176534 0%, #0a3a1e 70%, #062715 100%)",
-                      }}
-                    >
-                      <Icon className="w-5 h-5 icon-sharp" />
-                    </div>
-                    <span className="text-[10px] font-bold text-brand-800 bg-brand-chip rounded-full px-2 py-0.5">
-                      {l.id}
-                    </span>
-                  </div>
-                  <div className="mt-3 text-[10px] uppercase tracking-[0.18em] font-semibold text-ink-muted">
-                    {l.tier}
-                  </div>
-                  <div className="mt-1 text-[15px] font-bold text-ink tracking-tight">{l.name}</div>
-                  <p className="mt-2 text-[12px] text-ink-soft">{l.blurb}</p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* Feature grid */}
-      <section className="max-w-7xl mx-auto px-5 sm:px-8 py-20">
-        <SectionHead
-          eyebrow="What you get"
-          title="Observability that respects the customer."
-          sub="Live scenarios, explainable incidents, and a co-pilot that speaks plain English."
-        />
-        <div className="mt-10 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {FEATURES.map((f) => {
-            const Icon = f.icon;
-            return (
-              <div key={f.title} className="card card-hover p-6">
-                <div className="h-11 w-11 rounded-xl bg-brand-chip flex items-center justify-center">
-                  <Icon className="w-5 h-5 text-brand-800 icon-sharp" />
-                </div>
-                <div className="mt-4 text-[16px] font-bold text-ink tracking-tight">{f.title}</div>
-                <p className="mt-2 text-[13px] text-ink-soft leading-relaxed">{f.blurb}</p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Download section */}
-      <section id="download" className="max-w-7xl mx-auto px-5 sm:px-8 pb-24">
-        <div
-          className="card relative overflow-hidden p-8 sm:p-12 text-white"
-          style={{
-            background:
-              "radial-gradient(130% 110% at 15% 10%, #176534 0%, #0a3a1e 55%, #062715 100%)",
-            boxShadow: "var(--shadow-hero)",
-          }}
-        >
-          <div className="ring-deco -right-10 -top-10 h-48 w-48" />
-          <div className="ring-deco -right-24 -bottom-24 h-72 w-72" />
-          <div className="relative grid lg:grid-cols-5 gap-10 items-center">
-            <div className="lg:col-span-3">
-              <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-brand-mint/90">
-                <Monitor className="w-3.5 h-3.5" /> For Windows 10 & 11
-              </div>
-              <h2 className="mt-3 text-[36px] sm:text-[44px] leading-[1.02] font-bold tracking-[-0.03em]">
-                Install the <span className="text-brand-mint">local collector</span>
-              </h2>
-              <p className="mt-4 text-white/85 text-[15px] max-w-xl">
-                Tkinter desktop app. One installer, zero inbound ports. Collects CPU, memory, disk and
-                network locally, redacts anything sensitive, and uploads only 18 allow-listed fields to Supabase.
-                Only runtime dependency: <code className="font-mono text-brand-mint">psutil</code>.
-              </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <a
-                  href="/downloads/CICADA-Local-Collector-Setup-v3.2.exe"
-                  download
-                  className="inline-flex items-center gap-2 h-12 px-6 rounded-full font-semibold bg-brand-mint text-brand-900 hover:brightness-95 transition shadow-cardLg"
-                >
-                  <Download className="w-4 h-4" /> Download installer (11 MB)
-                </a>
-                <a
-                  href="https://github.com/syedae018-ship-it/CICADA-VELOCITY/blob/dev/cicada-local-collector/README_WINDOWS.md"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 h-12 px-6 rounded-full font-semibold border border-white/30 text-white hover:bg-white/10 transition"
-                >
-                  Install guide
-                </a>
-              </div>
-              <ol className="mt-7 space-y-2.5 text-[13px] text-white/85">
-                <InstallStep n={1}>Download <code className="font-mono">CICADA-Local-Collector-Setup-v3.2.exe</code></InstallStep>
-                <InstallStep n={2}>Run the installer (no admin required — installs per-user)</InstallStep>
-                <InstallStep n={3}>Open the app and paste your Supabase URL + device token</InstallStep>
-                <InstallStep n={4}>Watch telemetry stream into the dashboard</InstallStep>
-              </ol>
-            </div>
-            <div className="lg:col-span-2">
-              <InstallerMockup />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="border-t border-hairline">
-        <div className="max-w-7xl mx-auto px-5 sm:px-8 py-10 flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2.5">
-            <LogoMark small />
-            <div>
-              <div className="font-bold text-ink text-[14px]">Velocity Cicada</div>
-              <div className="text-[11px] text-ink-muted">CICADA 2026 · TechForcz × Atria</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 text-[11px] text-ink-muted">
-            {["Next.js 16", "FastAPI", "Supabase", "Tailwind 4"].map((t) => (
-              <span key={t} className="px-2.5 py-1 rounded-full bg-surface-soft border border-hairline">
-                {t}
-              </span>
             ))}
-          </div>
-          <a
-            href="https://github.com/syedae018-ship-it/CICADA-VELOCITY"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-[13px] text-ink-soft hover:text-brand-700"
+          </nav>
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#BFF09C] text-[#062715] font-semibold text-[13px] hover:brightness-110 transition"
           >
-            <Code2 className="w-4 h-4 icon-sharp" /> github.com/syedae018-ship-it/CICADA-VELOCITY
-          </a>
+            Open dashboard
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
         </div>
-      </footer>
-    </div>
+      </div>
+    </header>
   );
 }
 
-function SectionHead({ eyebrow, title, sub }: { eyebrow: string; title: string; sub: string }) {
+function LogoMark() {
   return (
-    <div className="max-w-3xl">
-      <div className="text-[11px] uppercase tracking-[0.2em] font-bold text-brand-700">{eyebrow}</div>
-      <h2 className="mt-3 text-[32px] sm:text-[40px] leading-[1.05] font-bold tracking-[-0.03em] text-ink">
-        {title}
-      </h2>
-      <p className="mt-4 text-[15px] text-ink-soft leading-relaxed">{sub}</p>
-    </div>
-  );
-}
-
-function Bullet({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <CheckCircle2 className="w-4 h-4 text-brand-700 icon-sharp" /> {children}
+    <span className="relative h-8 w-8 rounded-full bg-[#143222] flex items-center justify-center overflow-hidden">
+      <span className="absolute inset-0 landing-pulse" style={{
+        background: "radial-gradient(circle at 50% 50%, rgba(191,240,156,0.65) 0%, transparent 60%)",
+      }} />
+      <span className="relative h-2.5 w-2.5 rounded-full bg-[#BFF09C]" />
     </span>
   );
 }
 
-function FlowStep({
-  icon: Icon,
-  title,
-  sub,
-  last,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  sub: string;
-  last?: boolean;
-}) {
-  return (
-    <div className="card p-5 relative">
-      <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-xl bg-brand-chip flex items-center justify-center">
-          <Icon className="w-5 h-5 text-brand-800 icon-sharp" />
-        </div>
-        <div className="font-bold text-ink text-[14px] tracking-tight">{title}</div>
-      </div>
-      <p className="mt-3 text-[12px] text-ink-soft">{sub}</p>
-      {!last && (
-        <div className="hidden md:block absolute top-1/2 -right-3 -translate-y-1/2 z-10">
-          <div className="h-8 w-6 rounded-r-full bg-canvas flex items-center justify-center">
-            <ArrowRight className="w-4 h-4 text-brand-700 icon-sharp" />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+// ───────────────────────── Hero ─────────────────────────
 
-function InstallStep({ n, children }: { n: number; children: React.ReactNode }) {
+function Hero() {
   return (
-    <li className="flex items-start gap-3">
-      <span className="h-6 w-6 shrink-0 rounded-full bg-brand-mint text-brand-900 text-[12px] font-bold flex items-center justify-center">
-        {n}
-      </span>
-      <span>{children}</span>
-    </li>
-  );
-}
-
-function LogoMark({ small }: { small?: boolean }) {
-  const size = small ? 28 : 32;
-  return (
-    <div
-      className="rounded-xl flex items-center justify-center shadow-cardMd"
-      style={{
-        width: size,
-        height: size,
-        background:
-          "radial-gradient(130% 110% at 15% 10%, #176534 0%, #0a3a1e 70%, #062715 100%)",
-      }}
+    <section className="relative min-h-screen pt-32 pb-24 overflow-hidden text-white isolate"
+      style={{ background: "radial-gradient(130% 110% at 10% 0%, #176534 0%, #0a3a1e 45%, #062715 100%)" }}
     >
-      <Layers className="w-4 h-4 text-brand-mint icon-sharp" />
-    </div>
-  );
-}
+      {/* Background atmosphere */}
+      <div className="absolute inset-0 landing-grid pointer-events-none" aria-hidden />
+      <div className="absolute inset-0 landing-noise opacity-60 pointer-events-none" aria-hidden />
+      {/* Animated rings behind the mock */}
+      <div className="absolute right-[-120px] top-[18%] w-[640px] h-[640px] pointer-events-none" aria-hidden>
+        {[0, 1.4, 2.8].map((d, i) => (
+          <span key={i}
+            className="absolute inset-0 rounded-full border border-[#BFF09C]/40 landing-ring"
+            style={{ animationDelay: `${d}s` }}
+          />
+        ))}
+        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-24 w-24 rounded-full bg-[#BFF09C] blur-3xl opacity-40" />
+      </div>
 
-function HeroShield() {
-  return (
-    <div className="relative aspect-square max-w-[460px] mx-auto">
-      <svg viewBox="0 0 400 400" className="w-full h-full" aria-hidden="true">
-        <defs>
-          <radialGradient id="g1" cx="50%" cy="40%" r="60%">
-            <stop offset="0%" stopColor="#176534" />
-            <stop offset="55%" stopColor="#0a3a1e" />
-            <stop offset="100%" stopColor="#062715" />
-          </radialGradient>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-            <feMerge>
-              <feMergeNode in="coloredBlur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-        {/* outer rings */}
-        {[180, 150, 120, 90, 60].map((r, i) => (
-          <circle
-            key={r}
-            cx="200"
-            cy="200"
-            r={r}
-            fill="none"
-            stroke={i === 0 ? "#bff09c" : "#176534"}
-            strokeOpacity={0.9 - i * 0.14}
-            strokeWidth={i === 0 ? 2 : 1}
+      <div className="relative mx-auto max-w-7xl px-5 sm:px-8 grid lg:grid-cols-[1.1fr_1fr] gap-10 lg:gap-16 items-center">
+        {/* Left: headline */}
+        <div className="max-w-2xl">
+          <p className="landing-rise inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-[12px] font-medium text-white/80">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#BFF09C] animate-pulse" />
+            CICADA 2026 · Secure AIOps Observability
+          </p>
+          <h1 className="landing-rise mt-6 font-[family-name:var(--font-grotesk)] text-[52px] sm:text-[72px] lg:text-[88px] leading-[0.98] tracking-[-0.03em] font-semibold"
+            style={{ animationDelay: "80ms", color: "#fff" }}
           >
-            <animate
-              attributeName="r"
-              values={`${r};${r + 4};${r}`}
-              dur={`${3 + i * 0.4}s`}
-              repeatCount="indefinite"
-            />
-          </circle>
-        ))}
-        {/* center shield */}
-        <circle cx="200" cy="200" r="48" fill="url(#g1)" filter="url(#glow)" />
-        <text
-          x="200"
-          y="208"
-          textAnchor="middle"
-          fontFamily="Inter, sans-serif"
-          fontWeight="700"
-          fontSize="20"
-          fill="#bff09c"
-        >
-          CORE
-        </text>
-        {/* layer labels */}
-        {[
-          { x: 200, y: 20, label: "L1 Redact" },
-          { x: 380, y: 200, label: "L2 Outbound" },
-          { x: 200, y: 380, label: "L3 HMAC" },
-          { x: 20, y: 200, label: "L4 Tenant" },
-          { x: 310, y: 60, label: "L5 Audit" },
-        ].map((n) => (
-          <g key={n.label}>
-            <circle cx={n.x} cy={n.y} r="6" fill="#bff09c">
-              <animate attributeName="opacity" values="0.4;1;0.4" dur="2.4s" repeatCount="indefinite" />
-            </circle>
-            <text
-              x={n.x}
-              y={n.y - 12}
-              textAnchor="middle"
-              fontFamily="Inter, sans-serif"
-              fontWeight="600"
-              fontSize="11"
-              fill="#104f2a"
+            Watch everything.
+            <br />
+            <span className="text-[#BFF09C]">Leak nothing.</span>
+          </h1>
+          <p className="landing-rise mt-7 max-w-xl text-[19px] leading-[1.55] text-white/75"
+            style={{ animationDelay: "180ms" }}
+          >
+            A local collector scrubs every secret before it leaves the building.
+            A cloud brain learns, explains and recommends — without ever seeing
+            your raw logs.
+          </p>
+          <div className="landing-rise mt-10 flex flex-wrap items-center gap-3"
+            style={{ animationDelay: "260ms" }}
+          >
+            <Link
+              href="/dashboard"
+              className="group inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-[#BFF09C] text-[#062715] font-semibold text-[15px] hover:brightness-110 transition shadow-[0_12px_32px_-12px_rgba(191,240,156,0.6)]"
             >
-              {n.label}
-            </text>
-          </g>
-        ))}
-      </svg>
-    </div>
+              See it live
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+            <a
+              href="#how"
+              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full border border-white/15 text-white/90 font-medium text-[15px] hover:bg-white/5 transition"
+            >
+              How it works
+            </a>
+          </div>
+
+          {/* Trust bar */}
+          <div className="landing-fade mt-14 flex flex-wrap items-center gap-6 text-white/55 text-[13px]"
+            style={{ animationDelay: "420ms" }}
+          >
+            {["HMAC-SHA256", "Row-level security", "Egress-proof panel", "Gemini on-device prompts"].map((t) => (
+              <span key={t} className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-[#BFF09C]/80" />
+                {t}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Right: live mock */}
+        <div className="landing-rise relative"
+          style={{ animationDelay: "320ms" }}
+        >
+          <HeroMock />
+        </div>
+      </div>
+
+      {/* Marquee of metric chips */}
+      <div className="relative mt-24 overflow-hidden border-y border-white/10 bg-black/20 py-5">
+        <div className="landing-ticker flex gap-10 w-max">
+          {[...MARQUEE, ...MARQUEE].map((t, i) => (
+            <span key={i} className="inline-flex items-center gap-2 text-white/60 text-[13px] font-mono whitespace-nowrap">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#BFF09C]/70" /> {t}
+            </span>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
-function InstallerMockup() {
+const MARQUEE = [
+  "cpu_pct 42.1",
+  "p95_ingest 1.3s",
+  "alerts_open 0",
+  "egress_sha256 ✓",
+  "collector c_blr01 online",
+  "firewall blocked 7",
+  "prometheus live",
+  "tenant t_acme",
+  "mem_pct 68.4",
+  "replay_after_outage 0 loss",
+  "incidents correlated 1/3",
+  "gemini streaming",
+];
+
+// ───────────────────────── Hero live mock ─────────────────────────
+
+function HeroMock() {
   return (
-    <div className="rounded-2xl bg-white/5 border border-white/15 p-4 backdrop-blur">
-      <div className="rounded-xl bg-[#0b1210]/80 overflow-hidden">
-        <div className="flex items-center gap-1.5 px-3 py-2 border-b border-white/10">
-          <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f56]" />
-          <span className="h-2.5 w-2.5 rounded-full bg-[#ffbd2e]" />
-          <span className="h-2.5 w-2.5 rounded-full bg-[#27c93f]" />
-          <span className="ml-2 text-[11px] text-white/60 font-mono">CICADA-Collector.exe</span>
+    <div className="relative mx-auto w-full max-w-[520px] rounded-[28px] border border-white/10 bg-[#0A1D12]/90 backdrop-blur-xl shadow-[0_60px_120px_-40px_rgba(0,0,0,0.6)] overflow-hidden">
+      {/* chrome */}
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/10">
+        <div className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
+          <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
+          <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
         </div>
-        <div className="p-5 space-y-3 text-[12px] font-mono">
-          <Row label="Status" value="● ONLINE" valueClass="text-brand-mint" />
-          <Row label="CPU" value="42.1 %" />
-          <Row label="Memory" value="68.3 %" />
-          <Row label="Network ↑" value="3.2 MB/s" />
-          <Row label="Redacted" value="12 secrets" valueClass="text-brand-mint" />
-          <div className="pt-3 mt-3 border-t border-white/10">
-            <Row label="→ Supabase" value="202 Accepted" valueClass="text-brand-mint" />
-            <Row label="Buffer" value="0 queued" />
+        <span className="text-[11px] font-mono text-white/40">cicada · t_acme · live</span>
+      </div>
+
+      {/* KPI row */}
+      <div className="grid grid-cols-3 gap-3 p-5 pb-3">
+        {[
+          { k: "16", l: "sources" },
+          { k: "3", l: "incidents" },
+          { k: "0", l: "secrets" },
+        ].map((s) => (
+          <div key={s.l} className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+            <div className="text-[28px] font-semibold text-white leading-none font-[family-name:var(--font-grotesk)]">{s.k}</div>
+            <div className="mt-1 text-[10px] uppercase tracking-[0.18em] text-white/40">{s.l}</div>
           </div>
-          <div className="mt-4 h-1.5 rounded-full bg-white/10 overflow-hidden">
-            <div className="h-full w-[72%] bg-brand-mint">
-              <div className="h-full w-full animate-pulse" />
+        ))}
+      </div>
+
+      {/* Chart */}
+      <div className="px-5 pb-4">
+        <div className="flex items-end justify-between h-20 gap-1.5">
+          {[0.5, 0.7, 0.4, 0.9, 0.6, 1, 0.75, 0.55, 0.85, 0.65, 0.95, 0.5, 0.8, 0.6, 0.45, 0.7].map((v, i) => (
+            <span key={i}
+              className="flex-1 rounded-t bg-[#BFF09C] landing-bar"
+              style={{ height: `${v * 100}%`, animationDelay: `${i * 90}ms`, opacity: 0.35 + v * 0.65 }}
+            />
+          ))}
+        </div>
+        <div className="mt-2 flex items-center justify-between text-[10px] font-mono text-white/35">
+          <span>cpu_pct · last 15m</span>
+          <span className="text-[#BFF09C]">p95 42%</span>
+        </div>
+      </div>
+
+      {/* Live incident card */}
+      <div className="mx-4 mb-4 rounded-2xl border border-[#BFF09C]/20 bg-[#BFF09C]/5 p-4">
+        <div className="flex items-start gap-3">
+          <span className="relative h-9 w-9 rounded-full bg-[#BFF09C]/15 flex items-center justify-center shrink-0">
+            <Sparkles className="w-4 h-4 text-[#BFF09C]" />
+            <span className="absolute inset-0 rounded-full border border-[#BFF09C]/40 landing-ring" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[13px] font-semibold text-white">CPU anomaly · payments-api</div>
+            <div className="mt-0.5 text-[11.5px] text-white/60 leading-snug">
+              +3.4σ above the 15-min baseline on <span className="font-mono">src_a4cc1a34</span>. Suggested action: scale pod to 3 replicas.
+            </div>
+            <div className="mt-2.5 flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-full bg-[#BFF09C] text-[#062715] text-[10px] font-bold">Approve</span>
+              <span className="px-2 py-0.5 rounded-full border border-white/15 text-white/60 text-[10px]">Rollback</span>
+              <span className="ml-auto text-[10px] font-mono text-white/40">conf 92%</span>
             </div>
           </div>
-          <div className="text-[10px] text-white/50 text-center">
-            Health score · 72 / 100
+        </div>
+      </div>
+
+      {/* Firewall ticker */}
+      <div className="border-t border-white/8 px-5 py-3 flex items-center gap-2 text-[11px] text-white/55 font-mono">
+        <ShieldCheck className="w-3.5 h-3.5 text-[#BFF09C]" />
+        <span className="truncate">firewall · 542 allowed · 7 blocked · 0 quarantined</span>
+        <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#BFF09C] landing-pulse" />
+      </div>
+    </div>
+  );
+}
+
+// ───────────────────────── Why ─────────────────────────
+
+function Why() {
+  return (
+    <section id="why" className="relative py-28 bg-canvas">
+      <div className="mx-auto max-w-5xl px-5 sm:px-8 text-center">
+        <SectionLabel>Why we built it</SectionLabel>
+        <h2 className="mt-5 font-[family-name:var(--font-grotesk)] text-[40px] sm:text-[56px] leading-[1.04] tracking-[-0.025em] font-semibold text-ink">
+          Observability shouldn&apos;t cost you your <span className="text-brand-700">privacy</span>.
+        </h2>
+        <p className="mt-6 text-[18px] leading-[1.6] text-ink-soft max-w-2xl mx-auto">
+          Every monitoring vendor wants your raw logs. We don&apos;t.
+          Secrets, emails, IPs, usernames — none of it ever leaves the host.
+          Only the numbers you&apos;d publish on a status page do.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+// ───────────────────────── How it works ─────────────────────────
+
+function How() {
+  const steps = [
+    {
+      icon: Lock,
+      k: "01",
+      t: "Collect, then clean",
+      b: "A small agent sits inside the customer site. It strips secrets and keeps every raw log local.",
+      line: "collector/redact.py",
+    },
+    {
+      icon: Workflow,
+      k: "02",
+      t: "Correlate, don't overwhelm",
+      b: "Learn a 15-minute baseline per metric. Group related alerts into one incident with a likely cause.",
+      line: "saas/aiops/correlate.py",
+    },
+    {
+      icon: Brain,
+      k: "03",
+      t: "Explain, then ask",
+      b: "Every recommendation shows its reasoning, signals and confidence. A human approves. A human can roll back.",
+      line: "saas/aiops/recommend.py",
+    },
+  ];
+  return (
+    <section id="how" className="relative py-28 bg-canvas-deep">
+      <div className="mx-auto max-w-7xl px-5 sm:px-8">
+        <div className="max-w-2xl">
+          <SectionLabel>How it works</SectionLabel>
+          <h2 className="mt-5 font-[family-name:var(--font-grotesk)] text-[40px] sm:text-[56px] leading-[1.04] tracking-[-0.025em] font-semibold text-ink">
+            Three stages.<br />One trust boundary.
+          </h2>
+        </div>
+        <div className="mt-14 grid md:grid-cols-3 gap-5">
+          {steps.map((s) => {
+            const Icon = s.icon;
+            return (
+              <div key={s.k} className="group relative rounded-[28px] bg-surface border border-hairline p-7 hover:shadow-cardMd transition-shadow">
+                <div className="flex items-start justify-between">
+                  <span className="h-12 w-12 rounded-2xl bg-brand-chip flex items-center justify-center text-brand-800 group-hover:bg-brand-700 group-hover:text-brand-mint transition-colors">
+                    <Icon className="w-5 h-5" />
+                  </span>
+                  <span className="text-[13px] font-mono text-ink-muted">{s.k}</span>
+                </div>
+                <h3 className="mt-6 text-[22px] font-semibold text-ink leading-tight font-[family-name:var(--font-grotesk)]">{s.t}</h3>
+                <p className="mt-3 text-[14.5px] text-ink-soft leading-[1.55]">{s.b}</p>
+                <div className="mt-7 pt-4 border-t border-hairline flex items-center justify-between text-[11.5px] font-mono text-ink-muted">
+                  <span className="truncate">{s.line}</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ───────────────────────── Proof: Privacy + Explainable ─────────────────────────
+
+function Proof() {
+  return (
+    <section id="proof" className="relative py-28 bg-canvas">
+      <div className="mx-auto max-w-7xl px-5 sm:px-8 space-y-20">
+        {/* Row 1: privacy */}
+        <div className="grid lg:grid-cols-[1.1fr_1fr] gap-12 lg:gap-16 items-center">
+          <div>
+            <SectionLabel>Privacy, visible</SectionLabel>
+            <h3 className="mt-5 font-[family-name:var(--font-grotesk)] text-[36px] sm:text-[48px] leading-[1.06] tracking-[-0.025em] font-semibold text-ink">
+              See exactly what leaves.
+              <br />Byte for byte.
+            </h3>
+            <p className="mt-6 text-[17px] leading-[1.6] text-ink-soft max-w-lg">
+              Every payload is logged with its SHA-256 before it crosses the wire.
+              Open the Egress Proof panel and read it yourself.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-2">
+              {["password", "api_key", "jwt", "email", "ipv4", "aws_key"].map((r) => (
+                <span key={r} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-hairline bg-surface text-[12px] font-mono text-ink-soft">
+                  <span className="h-1.5 w-1.5 rounded-full bg-brand-500" />
+                  {r}
+                </span>
+              ))}
+            </div>
           </div>
+          <PrivacySplit />
+        </div>
+
+        {/* Row 2: explainable */}
+        <div className="grid lg:grid-cols-[1fr_1.1fr] gap-12 lg:gap-16 items-center">
+          <ExplainCard />
+          <div>
+            <SectionLabel>Explainable AIOps</SectionLabel>
+            <h3 className="mt-5 font-[family-name:var(--font-grotesk)] text-[36px] sm:text-[48px] leading-[1.06] tracking-[-0.025em] font-semibold text-ink">
+              Not a black box.
+              <br />A trained engineer.
+            </h3>
+            <p className="mt-6 text-[17px] leading-[1.6] text-ink-soft max-w-lg">
+              Every anomaly comes with its baseline, its z-score, and the
+              signals that contributed. Every recommendation shows its
+              reasoning path. You approve the fix. You own the rollback.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PrivacySplit() {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <div className="rounded-2xl border border-danger-100 bg-[#fff8f5] p-5 min-h-[260px]">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-danger-700 font-bold">Raw · stays local</span>
+          <span className="text-[10px] text-danger-700 font-bold">6 leaks</span>
+        </div>
+        <pre className="text-[11px] font-mono text-danger-700/90 leading-snug whitespace-pre-wrap break-words">
+{`auth: user admin@acme.com
+password=hunter2 from
+192.168.4.21 token=
+eyJhbGciOi... key=AKIA
+IOSFODNN7EXAMPLE`}
+        </pre>
+      </div>
+      <div className="rounded-2xl border border-brand-100 bg-brand-chip/40 p-5 min-h-[260px]">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-brand-800 font-bold">Sent · allow-listed</span>
+          <span className="text-[10px] text-brand-800 font-bold">0 leaks</span>
+        </div>
+        <pre className="text-[11px] font-mono text-brand-900 leading-snug">
+{`{
+  "src_id": "src_a4cc1a34",
+  "metric": "auth_fail",
+  "count": 3,
+  "severity": "high",
+  "t_utc": "2026-11-21T09:14Z"
+}`}
+        </pre>
+      </div>
+    </div>
+  );
+}
+
+function ExplainCard() {
+  return (
+    <div className="relative rounded-[28px] border border-hairline bg-surface p-6 shadow-cardMd">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="h-9 w-9 rounded-xl bg-brand-chip flex items-center justify-center">
+            <Sparkles className="w-4 h-4 text-brand-800" />
+          </span>
+          <div>
+            <div className="text-[13px] font-semibold text-ink">AI Insights</div>
+            <div className="text-[11px] text-ink-muted">payments-api · src_a4cc1a34</div>
+          </div>
+        </div>
+        <span className="text-[11px] font-mono text-brand-800 bg-brand-chip px-2 py-0.5 rounded-full">conf 92%</span>
+      </div>
+
+      <div className="mt-5 text-[13px] text-ink leading-[1.55]">
+        CPU is <b>+3.4σ</b> above the 15-min baseline (avg 38%, std 7.2).
+        Memory and latency are co-elevated on the same pod.
+      </div>
+
+      <div className="mt-5 space-y-2">
+        {[
+          "15-min baseline exceeded by 3.4σ",
+          "Memory +1.8σ, latency +2.1σ on same pod",
+          "Deploy at 14:02 matches start of anomaly",
+        ].map((t, i) => (
+          <div key={i} className="flex items-start gap-2 text-[12.5px] text-ink-soft">
+            <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-brand-500" />
+            <span>{t}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-6 pt-5 border-t border-hairline flex items-center justify-between">
+        <span className="text-[13px] font-semibold text-ink">Scale pod to 3 replicas</span>
+        <div className="flex items-center gap-2">
+          <button className="px-3 py-1.5 rounded-full border border-hairline text-[12px] font-semibold text-ink-soft">Rollback</button>
+          <button className="px-3 py-1.5 rounded-full bg-brand-700 text-white text-[12px] font-semibold">Approve</button>
         </div>
       </div>
     </div>
   );
 }
 
-function Row({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
+// ───────────────────────── Stats strip ─────────────────────────
+
+function StatsStrip() {
+  const stats = [
+    { k: "0", l: "secrets reached the SaaS" },
+    { k: "1.3s", l: "p95 ingest latency" },
+    { k: "7 / 7", l: "attacks blocked in firewall test" },
+    { k: "0", l: "lost payloads after an outage" },
+  ];
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-white/60">{label}</span>
-      <span className={`font-bold ${valueClass ?? "text-white"}`}>{value}</span>
+    <section className="relative py-16 bg-[#BFF09C] text-[#062715]">
+      <div className="mx-auto max-w-7xl px-5 sm:px-8 grid grid-cols-2 md:grid-cols-4 gap-10">
+        {stats.map((s) => (
+          <div key={s.l}>
+            <div className="text-[48px] sm:text-[64px] leading-none font-semibold font-[family-name:var(--font-grotesk)] tracking-[-0.03em]">
+              {s.k}
+            </div>
+            <div className="mt-3 text-[13px] font-medium text-[#0a3a1e]/80 max-w-[200px] leading-snug">
+              {s.l}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ───────────────────────── Final CTA ─────────────────────────
+
+function FinalCTA() {
+  return (
+    <section id="demo" className="relative overflow-hidden text-white isolate"
+      style={{ background: "radial-gradient(130% 110% at 85% 20%, #176534 0%, #0a3a1e 45%, #062715 100%)" }}
+    >
+      <div className="absolute inset-0 landing-grid pointer-events-none" aria-hidden />
+      <div className="absolute -left-40 top-1/2 -translate-y-1/2 w-[540px] h-[540px]" aria-hidden>
+        {[0, 1.6].map((d, i) => (
+          <span key={i} className="absolute inset-0 rounded-full border border-[#BFF09C]/30 landing-ring" style={{ animationDelay: `${d}s` }} />
+        ))}
+      </div>
+      <div className="relative mx-auto max-w-5xl px-5 sm:px-8 py-32 text-center">
+        <SectionLabel tone="mint">Ready in 3 minutes</SectionLabel>
+        <h2 className="mt-5 font-[family-name:var(--font-grotesk)] text-[48px] sm:text-[72px] leading-[0.98] tracking-[-0.03em] font-semibold" style={{ color: "#fff" }}>
+          See it break. <br />Watch it heal.
+        </h2>
+        <p className="mt-7 text-[18px] leading-[1.6] text-white/70 max-w-xl mx-auto">
+          Open the dashboard, trigger one of eight failure scenarios, and watch
+          the pipeline detect, explain and recover — live.
+        </p>
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+          <Link href="/dashboard" className="group inline-flex items-center gap-2 px-7 py-4 rounded-full bg-[#BFF09C] text-[#062715] font-semibold text-[15px] hover:brightness-110 transition shadow-[0_18px_40px_-16px_rgba(191,240,156,0.7)]">
+            Open the dashboard
+            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+          </Link>
+          <Link href="/login" className="inline-flex items-center gap-2 px-7 py-4 rounded-full border border-white/15 font-medium text-[15px] hover:bg-white/5 transition">
+            Sign in as tenant
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ───────────────────────── Footer ─────────────────────────
+
+function Footer() {
+  return (
+    <footer className="bg-[#062715] text-white/70 border-t border-white/5">
+      <div className="mx-auto max-w-7xl px-5 sm:px-8 py-16 grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <LogoMark />
+            <span className="text-white font-semibold text-[15px] tracking-tight">Velocity Cicada</span>
+          </div>
+          <p className="mt-5 text-[13.5px] leading-[1.6] text-white/55 max-w-xs">
+            Two-tier, privacy-first AIOps built in 24 hours for CICADA 2026.
+          </p>
+        </div>
+        <FooterCol title="Product" links={[
+          { label: "Overview", href: "/dashboard?view=overview" },
+          { label: "Judge Mode", href: "/dashboard?view=judge" },
+          { label: "Egress Proof", href: "/dashboard?view=egress" },
+          { label: "Firewall", href: "/dashboard?view=firewall" },
+        ]} />
+        <FooterCol title="Resources" links={[
+          { label: "How it works", href: "#how" },
+          { label: "Privacy", href: "/dashboard?view=privacy" },
+          { label: "Reliability", href: "/dashboard?view=reliability" },
+        ]} />
+        <FooterCol title="Build" links={[
+          { label: "GitHub", href: "https://github.com", external: true, icon: Github },
+          { label: "CLI", href: "/dashboard?view=reports", icon: TerminalSquare },
+        ]} />
+      </div>
+      <div className="border-t border-white/5">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[12px] text-white/40">
+          <span>© 2026 Velocity Cicada · CICADA 2026 · TechForcz × Atria</span>
+          <span className="font-mono">Built privacy-first, 24h, zero leaks.</span>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+function FooterCol({
+  title, links,
+}: {
+  title: string;
+  links: { label: string; href: string; external?: boolean; icon?: React.ComponentType<{ className?: string }> }[];
+}) {
+  return (
+    <div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">{title}</div>
+      <ul className="mt-5 space-y-3 text-[13.5px]">
+        {links.map((l) => {
+          const Icon = l.icon;
+          return (
+            <li key={l.label}>
+              <Link
+                href={l.href}
+                target={l.external ? "_blank" : undefined}
+                rel={l.external ? "noopener noreferrer" : undefined}
+                className="inline-flex items-center gap-1.5 text-white/70 hover:text-white transition-colors"
+              >
+                {Icon && <Icon className="w-3.5 h-3.5" />}
+                {l.label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
     </div>
+  );
+}
+
+// ───────────────────────── Helpers ─────────────────────────
+
+function SectionLabel({ children, tone = "ink" }: { children: React.ReactNode; tone?: "ink" | "mint" }) {
+  const cls = tone === "mint"
+    ? "text-[#BFF09C]/90"
+    : "text-brand-700";
+  return (
+    <p className={`inline-flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.22em] ${cls}`}>
+      <span className="h-px w-8 bg-current opacity-50" />
+      {children}
+    </p>
+  );
+}
+
+// ───────────────────────── Page ─────────────────────────
+
+export default function LandingPage() {
+  return (
+    <main className="bg-canvas text-ink">
+      <Nav />
+      <Hero />
+      <Why />
+      <How />
+      <Proof />
+      <StatsStrip />
+      <FinalCTA />
+      <Footer />
+    </main>
   );
 }
