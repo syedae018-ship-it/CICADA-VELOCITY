@@ -142,7 +142,7 @@ CICADA_TENANT_ID=00000000-0000-0000-0000-000000000000
 COLLECTION_INTERVAL_SECONDS=10
 ```
 
-> **Note:** If `SUPABASE_DEVICE_TOKEN` is omitted, the collector automatically runs in safe **Local-Only Mode** without crashing or faking cloud uploads.
+> **Note:** `SUPABASE_DEVICE_TOKEN` is optional. Without it, the collector uploads using the publishable key (allowed by the `telemetry_events` insert policy). If `SUPABASE_URL` or the publishable key is missing, it runs in safe **Local-Only Mode** without crashing or faking cloud uploads.
 
 ---
 

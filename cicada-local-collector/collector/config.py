@@ -80,16 +80,18 @@ class CollectorConfig:
 
     @property
     def is_authenticated(self) -> bool:
-        """Return True if device-specific authentication token and explicit consent are present."""
-        return bool(self.is_cloud_enabled and self.supabase_token and self.consent_given)
+        """Return True if the collector may upload: Supabase URL/key configured and consent given.
+
+        The device token is optional. Without it, requests authenticate with the
+        publishable key, which the telemetry_events insert policy accepts.
+        """
+        return bool(self.is_cloud_enabled and self.consent_given)
 
     def sanitized_summary(self) -> dict:
         """Return non-sensitive configuration summary for terminal UI and logging."""
         url_display = self.supabase_url if self.supabase_url else "Not Configured (Local-Only Mode)"
         if not self.is_cloud_enabled:
             cloud_status = "LOCAL_ONLY"
-        elif not self.supabase_token:
-            cloud_status = "NEEDS_DEVICE_TOKEN"
         elif not self.consent_given:
             cloud_status = "NEEDS_CUSTOMER_CONSENT"
         else:

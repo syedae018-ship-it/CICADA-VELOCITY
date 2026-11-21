@@ -10,7 +10,7 @@
 ; ==============================================================================
 
 #define MyAppName "CICADA Local Collector"
-#define MyAppVersion "3.2.0"
+#define MyAppVersion "4.0.0"
 #define MyAppPublisher "CICADA Observability"
 #define MyAppExeName "CICADA-Collector.exe"
 

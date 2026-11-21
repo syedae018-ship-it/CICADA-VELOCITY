@@ -51,7 +51,7 @@ class SupabaseTelemetryUploader:
         if not self.config.is_cloud_enabled:
             cloud_auditor.current_status = "LOCAL_ONLY (Missing Supabase URL/Key)"
         elif not self.config.is_authenticated:
-            cloud_auditor.current_status = "UNENROLLED (Missing SUPABASE_DEVICE_TOKEN)"
+            cloud_auditor.current_status = "PAUSED (Consent Required)"
         else:
             cloud_auditor.current_status = "STANDBY"
 
@@ -99,7 +99,7 @@ class SupabaseTelemetryUploader:
             if e.code == 409:
                 return True, "Duplicate payload_id already stored in Supabase (idempotent)", 409
             elif e.code in (401, 403):
-                return False, f"Authentication error (HTTP {e.code}): Check SUPABASE_DEVICE_TOKEN", e.code
+                return False, f"Authentication error (HTTP {e.code}): Check the publishable key / device token", e.code
             else:
                 return False, f"Supabase HTTP error {e.code}", e.code
 
@@ -120,8 +120,8 @@ class SupabaseTelemetryUploader:
         """
         # If not authenticated, keep collector running locally without crashing
         if not self.config.is_authenticated:
-            cloud_auditor.current_status = "LOCAL_ONLY (Unenrolled)"
-            return False, "Collector running in local mode (SUPABASE_DEVICE_TOKEN not set)."
+            cloud_auditor.current_status = "LOCAL_ONLY (Not configured or consent missing)"
+            return False, "Collector running in local mode (Supabase URL/key or consent missing)."
 
         success, msg, code = self.send_http_request(payload)
 
