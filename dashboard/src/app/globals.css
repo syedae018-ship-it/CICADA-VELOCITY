@@ -308,3 +308,20 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
   background-size: 64px 64px;
   mask-image: radial-gradient(circle at 50% 40%, black 0%, transparent 70%);
 }
+
+/* Animated landing layers get their own compositor layer so they never force repaints. */
+.landing-ticker,
+.landing-ring,
+.landing-pulse,
+.landing-bar,
+.landing-sweep::after {
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-ticker, .landing-ring, .landing-pulse, .landing-bar, .landing-sweep::after,
+  .landing-rise, .landing-fade {
+    animation: none !important;
+  }
+}
