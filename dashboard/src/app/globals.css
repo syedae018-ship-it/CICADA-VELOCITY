@@ -219,8 +219,30 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 
 /* ──────────────────────────────── Landing page ──────────────────────────────── */
 @theme {
-  --font-grotesk: var(--font-grotesk), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-poppins: var(--font-poppins), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-instrument: var(--font-instrument), "Times New Roman", Georgia, serif;
 }
+
+/* A faint shimmer across the big headline — tasteful, slow, low-contrast. */
+@keyframes landing-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.landing-shimmer {
+  background: linear-gradient(90deg, #ffffff 0%, #ffffff 40%, #BFF09C 50%, #ffffff 60%, #ffffff 100%);
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: landing-shimmer 6s linear infinite;
+}
+
+/* Subtle vertical float used on the live-mock card. */
+@keyframes landing-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
+.landing-float { animation: landing-float 6s ease-in-out infinite; }
 
 @keyframes landing-rise {
   from { opacity: 0; transform: translateY(28px); }

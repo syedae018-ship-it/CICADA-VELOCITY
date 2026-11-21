@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import { Inter, JetBrains_Mono, Poppins, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 
 // Inter: a geometric sans used across the whole product (body + headings + key figures).
@@ -16,11 +16,19 @@ const jetbrains = JetBrains_Mono({
   variable: "--font-jetbrains",
   display: "swap",
 });
-// Space Grotesk: display face used on the landing page hero and large headings.
-const grotesk = Space_Grotesk({
+// Poppins: a geometric, professional display face used on the landing page headlines.
+const poppins = Poppins({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-grotesk",
+  weight: ["400", "500", "600", "700", "800", "900"],
+  variable: "--font-poppins",
+  display: "swap",
+});
+// Instrument Serif: a tall, elegant editorial italic used for one accent word.
+const instrument = Instrument_Serif({
+  subsets: ["latin"],
+  weight: ["400"],
+  style: ["normal", "italic"],
+  variable: "--font-instrument",
   display: "swap",
 });
 
@@ -36,7 +44,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrains.variable} ${grotesk.variable}`}>
+    <html lang="en" className={`${inter.variable} ${jetbrains.variable} ${poppins.variable} ${instrument.variable}`}>
       <body className="min-h-screen bg-canvas text-ink antialiased selection:bg-brand-600 selection:text-white font-sans">
         {children}
       </body>

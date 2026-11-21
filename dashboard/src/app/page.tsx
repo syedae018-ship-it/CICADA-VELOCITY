@@ -39,7 +39,7 @@ function Nav() {
         <div className="flex items-center justify-between h-14 px-4 sm:px-5 rounded-full border border-white/10 bg-[#0B1F14]/70 backdrop-blur-xl shadow-[0_8px_30px_-10px_rgba(0,0,0,0.45)]">
           <Link href="/" className="flex items-center gap-2.5 group">
             <LogoMark />
-            <span className="text-white font-semibold tracking-tight text-[15px]">Velocity Cicada</span>
+            <span className="text-white font-semibold tracking-[-0.02em] text-[15px] font-[family-name:var(--font-poppins)]">Velocity Cicada</span>
           </Link>
           <nav className="hidden md:flex items-center gap-1 text-[13px]">
             {NAV_LINKS.map((l) => (
@@ -104,12 +104,13 @@ function Hero() {
             <span className="h-1.5 w-1.5 rounded-full bg-[#BFF09C] animate-pulse" />
             CICADA 2026 · Secure AIOps Observability
           </p>
-          <h1 className="landing-rise mt-6 font-[family-name:var(--font-grotesk)] text-[52px] sm:text-[72px] lg:text-[88px] leading-[0.98] tracking-[-0.03em] font-semibold"
+          <h1 className="landing-rise mt-6 font-[family-name:var(--font-poppins)] text-[56px] sm:text-[76px] lg:text-[96px] leading-[0.96] tracking-[-0.045em] font-bold"
             style={{ animationDelay: "80ms", color: "#fff" }}
           >
             Watch everything.
             <br />
-            <span className="text-[#BFF09C]">Leak nothing.</span>
+            <span className="text-[#BFF09C]">Leak</span>{" "}
+            <span className="text-[#BFF09C] font-[family-name:var(--font-instrument)] italic font-normal tracking-[-0.02em]">nothing.</span>
           </h1>
           <p className="landing-rise mt-7 max-w-xl text-[19px] leading-[1.55] text-white/75"
             style={{ animationDelay: "180ms" }}
@@ -154,6 +155,7 @@ function Hero() {
           style={{ animationDelay: "320ms" }}
         >
           <HeroMock />
+          <div aria-hidden className="absolute inset-0 pointer-events-none landing-float" />
         </div>
       </div>
 
@@ -209,7 +211,7 @@ function HeroMock() {
           { k: "0", l: "secrets" },
         ].map((s) => (
           <div key={s.l} className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
-            <div className="text-[28px] font-semibold text-white leading-none font-[family-name:var(--font-grotesk)]">{s.k}</div>
+            <div className="text-[32px] font-bold text-white leading-none font-[family-name:var(--font-poppins)] tracking-[-0.03em]">{s.k}</div>
             <div className="mt-1 text-[10px] uppercase tracking-[0.18em] text-white/40">{s.l}</div>
           </div>
         ))}
@@ -269,8 +271,8 @@ function Why() {
     <section id="why" className="relative py-28 bg-canvas">
       <div className="mx-auto max-w-5xl px-5 sm:px-8 text-center">
         <SectionLabel>Why we built it</SectionLabel>
-        <h2 className="mt-5 font-[family-name:var(--font-grotesk)] text-[40px] sm:text-[56px] leading-[1.04] tracking-[-0.025em] font-semibold text-ink">
-          Observability shouldn&apos;t cost you your <span className="text-brand-700">privacy</span>.
+        <h2 className="mt-5 font-[family-name:var(--font-poppins)] text-[44px] sm:text-[60px] leading-[1.02] tracking-[-0.04em] font-bold text-ink">
+          Observability shouldn&apos;t cost you your <span className="text-brand-700 font-[family-name:var(--font-instrument)] italic font-normal tracking-[-0.015em]">privacy</span>.
         </h2>
         <p className="mt-6 text-[18px] leading-[1.6] text-ink-soft max-w-2xl mx-auto">
           Every monitoring vendor wants your raw logs. We don&apos;t.
@@ -313,8 +315,9 @@ function How() {
       <div className="mx-auto max-w-7xl px-5 sm:px-8">
         <div className="max-w-2xl">
           <SectionLabel>How it works</SectionLabel>
-          <h2 className="mt-5 font-[family-name:var(--font-grotesk)] text-[40px] sm:text-[56px] leading-[1.04] tracking-[-0.025em] font-semibold text-ink">
-            Three stages.<br />One trust boundary.
+          <h2 className="mt-5 font-[family-name:var(--font-poppins)] text-[44px] sm:text-[60px] leading-[1.02] tracking-[-0.04em] font-bold text-ink">
+            Three stages.<br />
+            <span className="font-[family-name:var(--font-instrument)] italic font-normal text-brand-700 tracking-[-0.02em]">One</span> trust boundary.
           </h2>
         </div>
         <div className="mt-14 grid md:grid-cols-3 gap-5">
@@ -328,7 +331,7 @@ function How() {
                   </span>
                   <span className="text-[13px] font-mono text-ink-muted">{s.k}</span>
                 </div>
-                <h3 className="mt-6 text-[22px] font-semibold text-ink leading-tight font-[family-name:var(--font-grotesk)]">{s.t}</h3>
+                <h3 className="mt-6 text-[22px] font-semibold text-ink leading-tight font-[family-name:var(--font-poppins)]">{s.t}</h3>
                 <p className="mt-3 text-[14.5px] text-ink-soft leading-[1.55]">{s.b}</p>
                 <div className="mt-7 pt-4 border-t border-hairline flex items-center justify-between text-[11.5px] font-mono text-ink-muted">
                   <span className="truncate">{s.line}</span>
@@ -353,9 +356,9 @@ function Proof() {
         <div className="grid lg:grid-cols-[1.1fr_1fr] gap-12 lg:gap-16 items-center">
           <div>
             <SectionLabel>Privacy, visible</SectionLabel>
-            <h3 className="mt-5 font-[family-name:var(--font-grotesk)] text-[36px] sm:text-[48px] leading-[1.06] tracking-[-0.025em] font-semibold text-ink">
+            <h3 className="mt-5 font-[family-name:var(--font-poppins)] text-[40px] sm:text-[52px] leading-[1.02] tracking-[-0.04em] font-bold text-ink">
               See exactly what leaves.
-              <br />Byte for byte.
+              <br /><span className="font-[family-name:var(--font-instrument)] italic font-normal text-brand-700 tracking-[-0.02em]">Byte</span> for byte.
             </h3>
             <p className="mt-6 text-[17px] leading-[1.6] text-ink-soft max-w-lg">
               Every payload is logged with its SHA-256 before it crosses the wire.
@@ -378,9 +381,9 @@ function Proof() {
           <ExplainCard />
           <div>
             <SectionLabel>Explainable AIOps</SectionLabel>
-            <h3 className="mt-5 font-[family-name:var(--font-grotesk)] text-[36px] sm:text-[48px] leading-[1.06] tracking-[-0.025em] font-semibold text-ink">
+            <h3 className="mt-5 font-[family-name:var(--font-poppins)] text-[40px] sm:text-[52px] leading-[1.02] tracking-[-0.04em] font-bold text-ink">
               Not a black box.
-              <br />A trained engineer.
+              <br />A <span className="font-[family-name:var(--font-instrument)] italic font-normal text-brand-700 tracking-[-0.02em]">trained</span> engineer.
             </h3>
             <p className="mt-6 text-[17px] leading-[1.6] text-ink-soft max-w-lg">
               Every anomaly comes with its baseline, its z-score, and the
@@ -488,7 +491,7 @@ function StatsStrip() {
       <div className="mx-auto max-w-7xl px-5 sm:px-8 grid grid-cols-2 md:grid-cols-4 gap-10">
         {stats.map((s) => (
           <div key={s.l}>
-            <div className="text-[48px] sm:text-[64px] leading-none font-semibold font-[family-name:var(--font-grotesk)] tracking-[-0.03em]">
+            <div className="text-[56px] sm:text-[80px] leading-none font-bold font-[family-name:var(--font-poppins)] tracking-[-0.055em]">
               {s.k}
             </div>
             <div className="mt-3 text-[13px] font-medium text-[#0a3a1e]/80 max-w-[200px] leading-snug">
@@ -516,8 +519,9 @@ function FinalCTA() {
       </div>
       <div className="relative mx-auto max-w-5xl px-5 sm:px-8 py-32 text-center">
         <SectionLabel tone="mint">Ready in 3 minutes</SectionLabel>
-        <h2 className="mt-5 font-[family-name:var(--font-grotesk)] text-[48px] sm:text-[72px] leading-[0.98] tracking-[-0.03em] font-semibold" style={{ color: "#fff" }}>
-          See it break. <br />Watch it heal.
+        <h2 className="mt-5 font-[family-name:var(--font-poppins)] text-[52px] sm:text-[80px] leading-[0.96] tracking-[-0.045em] font-bold" style={{ color: "#fff" }}>
+          See it break.<br />
+          <span className="font-[family-name:var(--font-instrument)] italic font-normal text-[#BFF09C] tracking-[-0.02em]">Watch</span> it heal.
         </h2>
         <p className="mt-7 text-[18px] leading-[1.6] text-white/70 max-w-xl mx-auto">
           Open the dashboard, trigger one of eight failure scenarios, and watch
@@ -546,7 +550,7 @@ function Footer() {
         <div>
           <div className="flex items-center gap-2.5">
             <LogoMark />
-            <span className="text-white font-semibold text-[15px] tracking-tight">Velocity Cicada</span>
+            <span className="text-white font-semibold tracking-[-0.02em] text-[15px] font-[family-name:var(--font-poppins)]">Velocity Cicada</span>
           </div>
           <p className="mt-5 text-[13.5px] leading-[1.6] text-white/55 max-w-xs">
             Two-tier, privacy-first AIOps built in 24 hours for CICADA 2026.
