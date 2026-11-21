@@ -22,6 +22,7 @@ import {
   Shield,
   Lock,
   BrickWall,
+  ClipboardCheck,
 } from "lucide-react";
 import { DashboardTab, TenantId } from "@/types";
 
@@ -58,6 +59,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const platform: NavItem[] = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
+    { id: "judge", label: "Judge Mode", icon: ClipboardCheck },
     { id: "sources", label: "Sources", icon: Layers },
     { id: "fleet", label: "Fleet", icon: Server },
     {

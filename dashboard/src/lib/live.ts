@@ -522,6 +522,15 @@ export async function streamChatMessage(
   return { text, model: r.headers.get("X-Model") || "unknown" };
 }
 
+/** Health-state thresholds: the four-state table operators see. Null when the SaaS is offline. */
+export async function fetchThresholds(): Promise<Json | null> {
+  try {
+    return await getJson(`${SAAS_URL}/api/v1/config/thresholds`);
+  } catch {
+    return null;
+  }
+}
+
 /** Ingest firewall (collector → receiver gate): rules, counters, recent decisions. Null when backend offline. */
 export async function fetchFirewallStatus(tenantId: TenantId): Promise<Json | null> {
   try {

@@ -20,6 +20,7 @@ import ReportsView from "@/components/dashboard/views/ReportsView";
 import SecurityView from "@/components/dashboard/views/SecurityView";
 import FirewallView from "@/components/dashboard/views/FirewallView";
 import ChatWidget from "@/components/dashboard/ChatWidget";
+import JudgeChecklistView from "@/components/dashboard/views/JudgeChecklistView";
 
 import { dataStore } from "@/lib/api";
 import { setAccessToken } from "@/lib/live";
@@ -27,7 +28,7 @@ import { currentUser, signOut } from "@/lib/supabase";
 import { DashboardTab, TenantId, MonitoredSource, TimeRange, ScenarioId, SCENARIOS } from "@/types";
 
 const TABS: DashboardTab[] = [
-  "overview", "sources", "fleet", "incidents", "ai_insights", "egress",
+  "overview", "judge", "sources", "fleet", "incidents", "ai_insights", "egress",
   "privacy", "security", "firewall", "reliability", "timeline", "history", "reports",
 ];
 const TENANTS: TenantId[] = ["t_acme", "t_globex"];
@@ -279,6 +280,20 @@ export default function DashboardPage() {
 
             {currentTab === "security" && <SecurityView tenantId={tenantId} />}
             {currentTab === "firewall" && <FirewallView tenantId={tenantId} />}
+            {currentTab === "judge" && (
+              <JudgeChecklistView
+                tenantId={tenantId}
+                sources={sources}
+                collectors={collectors}
+                incidents={incidents}
+                alerts={alerts}
+                recommendations={recommendations}
+                egress={egress}
+                rawRecords={rawRecords}
+                reliability={reliability}
+                onSelectTab={setCurrentTab}
+              />
+            )}
             {currentTab === "reports" && (
               <ReportsView tenantId={tenantId} />
             )}

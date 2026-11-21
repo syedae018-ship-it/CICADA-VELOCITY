@@ -225,6 +225,7 @@ export interface ActivityTimelineEvent {
 
 export type DashboardTab =
   | "overview"
+  | "judge"
   | "firewall"
   | "sources"
   | "fleet"
